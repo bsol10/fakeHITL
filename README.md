@@ -5,8 +5,11 @@
 The Human-in-the-loop (HITL) Update Agent is an AI-driven research update assistant for the Non-Profit Org: A Start in Life. It is designed to automate the updating process by:
 
 **1.** Re-checking preapproved sources
+
 **2.** Detecting additions or changes
+
 **3.** Extracting relevant findings
+
 **4.** Generating a updated draft where every claim is strictly linked to a cited source
 
 ## Tech Stack
