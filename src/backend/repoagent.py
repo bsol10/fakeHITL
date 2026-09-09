@@ -23,13 +23,12 @@ def main():
         repo=repo,
         use_parser=False,
         verbose=True,
-        filter_file_extensions=[".md", ".py"],  # Index Python code & Markdown documentation
+        filter_file_extensions=[".md", ".py"],
     )
     
     documents = reader.load_data(branch=branch)
     print(f"Loaded {len(documents)} document nodes.")
 
-    # 2. Push documents and create index via LlamaCloud API
     print("Uploading & indexing with LlamaCloud...")
     index = LlamaCloudIndex.from_documents(
         documents,
