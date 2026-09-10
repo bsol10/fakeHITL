@@ -1,67 +1,41 @@
 import os
-from llama_index.readers.github import GithubRepositoryReader, GithubClient
-from llama_cloud_services import LlamaCloudIndex
+from typing import Optional
+from pydantic import BaseModel
 
-def main():
-    llama_key = os.getenv("llx-...0dCz")
-    github_token = os.getenv("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")
-    
-    if not llama_key:
-        raise ValueError("LLAMA_CLOUD_API_KEY environment variable is missing.")
+from llama_index.core.output_parsers import PydanticOutputParser
+from llama_index.core.prompts import PromptTemplate
+from llama_index.llms.google_genai import GoogleGenAI
 
-    print("Connecting to GitHub...")
-    github_client = GithubClient(github_token=github_token)
+class PromptData(BaseModel):
+    ai_notes: Optional[str] = None
 
-    owner = "run-llama"
-    repo = "llama_index"
-    branch = "main"
+os.environ["GOOGLE_API_KEY"] = "[PUT YOUR OWN GEMINI API KEY FOR NOW, WE WILL FIND A SYNTHSISED ONE LATER]"
 
-    print(f"Loading repository files from {owner}/{repo}...")
-    reader = GithubRepositoryReader(
-        github_client=github_client,
-        owner=owner,
-        repo=repo,
-        use_parser=False,
-        verbose=True,
-        filter_file_extensions=[".md", ".py"],
-    )
-    
-    documents = reader.load_data(branch=branch)
-    print(f"Loaded {len(documents)} document nodes.")
+def parse_message_with_ai(raw_text: str) -> Optional[PromptData]:
+    try:
+        llm = GoogleGenAI(model="gemini-3.6-flash")
 
-    print("Uploading & indexing with LlamaCloud...")
-    index = LlamaCloudIndex.from_documents(
-        documents,
-        name="run_llama_index_repo",
-        project_name="default",
-        api_key=llama_key,
-        verbose=True
-    )
+        output_parser = PydanticOutputParser(PromptData)
 
-    query_engine = index.as_query_engine()
+        prompt_template = PromptTemplate(
+            template="""
+            You are an AI agent specialized in extrapolating data from Tables and Infographics.
+            Extract and create your own conclusions all relevant from the following text:
 
-    print("\n==========================================")
-    print(" LlamaIndex GitHub AI Agent is Running ")
-    print("==========================================")
-    print("Type 'exit' or 'quit' to end the session.\n")
+            {raw_text}
 
-    while True:
-        try:
-            user_input = input("\nYou: ")
-            if user_input.strip().lower() in ["exit", "quit"]:
-                print("Exiting AI Agent terminal session.")
-                break
+            {format_instructions}
+            """,
+            output_parser=output_parser,
+        )
 
-            if not user_input.strip():
-                continue
+        formatted_prompt = prompt_template.format(raw_text=raw_text)
 
-            print("\nAI Agent is thinking...")
-            response = query_engine.query(user_input)
-            print(f"\nAI: {response}")
+        response = llm.complete(formatted_prompt)
+        findings_data: PromptData = output_parser.parse(response.text)
 
-        except KeyboardInterrupt:
-            print("\nSession interrupted. Exiting.")
-            break
+        return findings_data
 
-if __name__ == "__main__":
-    main()
+    except Exception as e:
+        print("Error extrapolating from data:", e)
+        return None
