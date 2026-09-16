@@ -39,11 +39,10 @@ def run_terminal_agent():
             continue
 
         print("\nExtrapolating data...")
-        parsed_data = parse_message_with_ai(raw_text)
+        formatted_ui = parse_message_with_ai(raw_text)
 
-        if parsed_data:
-            print("\n--- Draft Result ---")
-            print(parsed_data.model_dump_json(indent=4))
+        if formatted_ui:
+            print(formatted_ui)
         else:
             print("\nFailed to extract data.")
 
