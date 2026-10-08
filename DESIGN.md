@@ -82,6 +82,9 @@ src/updater/
     policy.py  the rules the API enforces, as pure functions
     mock.py    the prototype's content, over the state in updater.state
     fixtures/  JSON extracted from the prototype by scripts/
+front-end/     the dashboard: the approved prototype wired to the API, served
+               at / by updater serve
+docs/frontend/ the approved prototype itself, source of truth for the fixtures
 src/backend/   the group's Gemini/LlamaIndex prototype (extra: prototype);
                not ours to edit, and excluded from ruff and mypy
 tests/
@@ -107,7 +110,8 @@ uv run updater search "<query>" --retriever dense   # or sparse: one input alone
 
 uv sync --extra retrieve --extra api --extra gemini --extra prototype
                                        # every extra: run this after any uv add/remove
-uv run updater serve                   # the API on 127.0.0.1:8000, docs at /docs;
+uv run updater serve                   # dashboard at http://127.0.0.1:8000/, the API at
+                                       # /api, docs at /docs (--no-frontend: API only);
                                        # state in the --db file, beside the index
 uv run updater extract "<claim>"       # retrieve, extract, print each verified quote
                                        # and the discard count; model from .env
@@ -169,6 +173,11 @@ interface, Claude (the default) and Gemini (`--extra gemini`), chosen by
 yet: phase 5's check against a real ASIL document with a real key, the discard
 count reaching the API (phase 9 wires the pipeline in), and neighbourhood
 assembly of adjacent passages.
+
+**Dashboard.** The approved prototype runs on the API: `front-end/index.html`,
+served by `updater serve` at `/`. Every screen in the workflow reads and writes
+the API; the screens with nothing behind them in the API (profile, team,
+integrations and so on) are still the prototype's demo.
 
 Next: BACKEND_PLAN.md phase 3, fetching web sources and OCR, and phase 5's
 check with a real key.
@@ -1328,11 +1337,12 @@ prototype, whose retirement is a separate, agreed change), `tests/test_basic.py`
   than annotated.
 - **`!data/readme.md`** in `.gitignore`, so `data/*` does not hide the group's
   file.
-- **One fixture string differs from `asil-updater`:** the notification that
-  named a staff member's email now says `invitee@example.org`, because this
-  repository is pushed to GitHub. Staff names remain (the API tests assert
-  "Kathleen D."). The prototype is not in this repository, so the fixture
-  `--check` test skips; regenerating the fixtures brings the address back.
+- **No client email address is in this repository.** This repository is
+  pushed to GitHub, so every `@astartinlife.org.au` address is
+  `@example.org`, in the notification fixture and in the prototype alike
+  (see the dashboard entry below). That is the one way the fixture differs
+  from `asil-updater`. Staff names remain, because the API tests assert
+  "Kathleen D.".
 - **The baseline commit tracks three `__pycache__/*.pyc` files**, which the
   group repo does not. Running Python here rewrites them, so the checks for
   this change ran with `PYTHONDONTWRITEBYTECODE=1`. Untracking them is a
@@ -1407,3 +1417,60 @@ loading it into the process, so collecting them changes nothing else.
 assembling neighbourhoods of adjacent passages for thin table rows (each would
 keep its own anchor), and phase 5's own check: run `updater extract` against a
 real ASIL document and read every quote against the source.
+
+**2026-10-08 — The dashboard runs on the API, served from the same origin.**
+`front-end/index.html` is `docs/frontend/asil-dashboard-DRAFT-FINAL.html` with
+every hardcoded array and static data row replaced by calls to `/api`. The
+markup, CSS and behaviour are otherwise the prototype's, because the contract
+kept its field names, so each screen renders the API response the way it
+rendered the literal. A test fails if any of the prototype's literals come back.
+
+*One origin.* `create_app(state, frontend=...)` mounts the directory at `/`
+**after** the API's routes, so `/api/...`, `/docs` and `/openapi.json` win over
+a file of the same name (there is a test). `updater serve` serves the checkout's
+`front-end/` by default, takes `--frontend DIR`, and `--no-frontend` gives the
+API alone. The default path is relative to the source checkout, so an
+installed wheel runs the API alone rather than failing.
+
+*The contract test* parses every `api(method, path)` call in the page and
+requires each to be a route and method in the API's OpenAPI document. A typo in
+the page is otherwise a 404 that just shows an empty screen.
+
+*Which run.* There is no endpoint that lists runs, so the page remembers the run
+it started in `localStorage`, and `?run=<id>` opens a given one. **`GET
+/runs/{id}` advances the mock scan on every call**, so the page calls it only
+while polling a scan in progress. On load it checks a remembered run through
+`/claims`, which changes nothing; a 404 forgets the run.
+
+*Escaping.* Every API value is escaped before it goes into markup. Claim notes
+and notification bodies keep `<b>`, `<strong>`, `<i>`, `<em>` and `<q>`, with
+no attributes, and lose everything else. That settles the 2026-10-01 note for
+the frontend team: from phase 6 a note is model output, and model output is
+never markup. A typed chat message is text, which the prototype got wrong.
+
+*Copy changed where the prototype claimed something the system does not do.*
+The sign-off toast and the paper footer said the report was published to the
+website and Google Drive; nothing publishes anything (rule 5). The checklist
+said "Two-step verification on", but there is no authentication. Two
+notification buttons claimed to approve a source and confirm a URL; they now
+open the registry, where those changes are made through the API. The
+registry's "High priority" card had no data behind it, so it is now "Paused",
+which the API can count. The approved prototype itself is unchanged apart from
+its email addresses.
+
+*Email addresses.* Every `@astartinlife.org.au` address in the prototype and
+the page is `@example.org`, and the fixture's notification uses
+`m.chen@example.org` to match. With the prototype in the repository, the
+fixture `--check` test now runs, and it passes.
+
+*Verified in a real browser.* Headless Chrome, driven over the DevTools
+protocol against `updater serve` on a throwaway database, went through
+registry, scan, extraction, draft review (approve, edit, note), sign-off, a
+reload, adding and approving a source, and saving settings: 46 checks, each
+confirmed against the API, with no JavaScript errors. That driver needs Chrome
+and is not in the suite; the contract test is.
+
+*Still demo-only*, with no API behind them: profile, notification preferences,
+appearance, security, integrations, team, the test-suite panel, the assistant,
+and notification read state. *Not yet:* the prior-report drop zone (phase 4),
+and who "Kathleen D." is (the prototype's signed-in user; phase 7 decides).

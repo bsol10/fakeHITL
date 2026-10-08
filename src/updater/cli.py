@@ -21,7 +21,8 @@ the source yourself. The model comes from ``.env`` (``UPDATER_MODEL_PROVIDER``
 and that provider's key and model id), and a missing one stops the command
 before anything is retrieved.
 
-``serve`` runs the HTTP API the dashboard talks to. It needs the ``api`` extra,
+``serve`` runs the HTTP API the dashboard talks to, and serves the dashboard
+itself (``front-end/``) at ``/`` from the same origin. It needs the ``api`` extra,
 imported only when the command runs, so ``ingest`` and ``search`` work without
 it. It keeps its state (decisions, reviews, the audit log) in the same database
 file as the index, so the three commands share one ``--db``.
@@ -64,9 +65,14 @@ from updater.retrieve.store import PassageStore, StoreError, database_path
 from updater.retrieve.tokenize import TokenizerUnavailable
 from updater.state import StateError
 
-__all__ = ["main"]
+__all__ = ["FRONTEND_DIR", "main"]
 
 LOGGER = logging.getLogger("updater")
+
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "front-end"
+"""The dashboard, in a source checkout: ``src/updater/cli.py`` is two levels
+below the repository root. An installed wheel has no such directory, and then
+``serve`` runs the API alone."""
 
 
 def _configure_console() -> None:
@@ -210,6 +216,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serve.add_argument(
         "--port", type=int, default=8000, help="port to listen on (default: 8000)"
+    )
+    serve.add_argument(
+        "--frontend",
+        type=Path,
+        default=FRONTEND_DIR,
+        help=(
+            "directory served at / beside the API (default: the repository's "
+            "front-end/, when there is one)"
+        ),
+    )
+    serve.add_argument(
+        "--no-frontend",
+        dest="frontend",
+        action="store_const",
+        const=None,
+        help="serve the API alone",
     )
     _add_common(serve)
 
@@ -432,9 +454,24 @@ def _serve(args: argparse.Namespace) -> int:
     except StateError as error:
         print(f"{error}", file=sys.stderr)
         return 2
+    frontend: Path | None = args.frontend
+    if frontend is not None and not (frontend / "index.html").is_file():
+        if args.frontend != FRONTEND_DIR:
+            print(f"no index.html in {frontend}", file=sys.stderr)
+            state.close()
+            return 2
+        frontend = None  # an installed package: the default checkout path is absent
     print(f"state:    {path}")
+    print(
+        f"dashboard: http://{args.host}:{args.port}/"
+        if frontend is not None
+        else "dashboard: not served (API only)"
+    )
+    print(f"api docs: http://{args.host}:{args.port}/docs")
     try:
-        uvicorn.run(create_app(state), host=args.host, port=args.port)
+        uvicorn.run(
+            create_app(state, frontend=frontend), host=args.host, port=args.port
+        )
     finally:
         state.close()
     return 0

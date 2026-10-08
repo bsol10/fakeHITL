@@ -1,4 +1,4 @@
-"""The FastAPI application: routes, error mapping and CORS.
+"""The FastAPI application: routes, error mapping, CORS and the dashboard.
 
 There is no authentication, because BUILD_SPEC.md section 7 rules it out of the
 first version, so ``updater serve`` binds to localhost by default. CORS admits
@@ -6,15 +6,22 @@ localhost and 127.0.0.1 on any port, which is where a frontend dev server runs.
 A page opened straight from disk sends ``Origin: null`` and is not admitted;
 admitting ``null`` would admit every sandboxed page on the machine. Serve the
 frontend over http instead.
+
+Given a ``frontend`` directory, the app serves it at ``/`` beside the API, so
+the dashboard and the API share one origin and need no CORS at all. The API's
+routes are registered first, so ``/api/...``, ``/docs`` and ``/openapi.json``
+always win over a file of the same name.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from updater.api.mock import MockState
 from updater.api.policy import (
@@ -47,10 +54,14 @@ def _responder(status: int) -> Callable[[Request, Exception], JSONResponse]:
     return respond
 
 
-def create_app(state: MockState | None = None) -> FastAPI:
+def create_app(
+    state: MockState | None = None, *, frontend: Path | None = None
+) -> FastAPI:
     """The app over ``state``; with none, over a fresh state held in memory.
 
     Whoever opens a state that keeps a file closes it: ``updater serve`` does.
+    ``frontend`` is a directory served at ``/``, ``index.html`` first; without
+    one the app is the API alone, as it always was.
     """
     app = FastAPI(
         title="ASIL research update API",
@@ -72,4 +83,6 @@ def create_app(state: MockState | None = None) -> FastAPI:
     for error, status in ERROR_STATUS.items():
         app.add_exception_handler(error, _responder(status))
     app.include_router(router)
+    if frontend is not None:
+        app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
     return app

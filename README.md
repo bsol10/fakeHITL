@@ -17,7 +17,7 @@ The backend is retrieval-first: every finding is anchored to a page, paragraph o
 ## Tech Stack
 
 - **Backend**: Python 3.12, the `updater` package (`src/updater`): ingestion, the approved-source registry, hybrid retrieval, evidence extraction with Claude or Gemini, and a FastAPI app for the dashboard
-- **Frontend**: 
+- **Frontend**: the approved dashboard prototype (plain HTML, CSS and JavaScript, no build step), wired to the API in `front-end/index.html` and served by the backend
 - **Database**: SQLite, with `sqlite-vec` for embeddings and FTS5 for full-text search
 - **Documentation**: `BUILD_SPEC.md`, `DESIGN.md`, `BACKEND_PLAN.md`, `PROJECT_OVERVIEW.md`
 - **Testing**: pytest
@@ -49,10 +49,10 @@ An API key for evidence extraction: Anthropic (the default) or Gemini. Copy `.en
 2. **Frontend**:
 
    ```bash
-   ///
-   TO BE PUT
-   ///
+   uv run updater serve    # then open http://127.0.0.1:8000/
    ```
+
+   Nothing to install: `updater serve` serves the dashboard at `/` and the API at `/api` from one origin. Its state (decisions, reviews, sign-off, the audit log) is kept in the `--db` file and survives a restart.
 
 3. **Documentation**:
 
@@ -65,7 +65,7 @@ An API key for evidence extraction: Anthropic (the default) or Gemini. Copy `.en
 ### Development
 
 - Backend API docs: `uv run updater serve`, then http://127.0.0.1:8000/docs
-- Frontend: 
+- Frontend: `front-end/index.html`, served at `/` by `updater serve`. It is the approved design in `docs/frontend/asil-dashboard-DRAFT-FINAL.html` with its hardcoded data replaced by API calls; the field names match, so a screen reads the API response exactly as the prototype read its arrays.
 - Component library: 
 - Documentation: 
 
@@ -115,8 +115,8 @@ cd src/backend && uv run python query.py
 ├── scripts/              # passage inspector, prototype fixture extraction
 ├── data/sources/         # documents to ingest; gitignored except its README
 ├── registry.yaml         # the approved sources
-├── front-end/            # to come
-├── docs/                 # to come
+├── front-end/            # the dashboard, wired to the API; served by updater serve
+├── docs/frontend/        # the approved prototype, source of truth for the API fixtures
 ├── .gitlab-ci.yml        # CI/CD pipeline (to come)
 └── README.md
 ```
@@ -124,7 +124,7 @@ cd src/backend && uv run python query.py
 ## Testing
 
 - **Backend**: `uv run pytest`. The paid live tests against the model APIs are deselected by default; run them with `uv run pytest -m live`.
-- **Frontend**:
+- **Frontend**: `tests/test_api_frontend.py` checks every API call the page makes against the API's own routes, and that none of the prototype's hardcoded data is left in it.
 
 ## Documentation
 
