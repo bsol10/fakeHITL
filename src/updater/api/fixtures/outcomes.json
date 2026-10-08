@@ -1,0 +1,42 @@
+[
+  {
+    "state": "complete",
+    "detail": "3 changes found"
+  },
+  {
+    "state": "complete",
+    "detail": "No change since last scan"
+  },
+  {
+    "state": "attention",
+    "detail": "Login wall, skipped after 1 retry"
+  },
+  {
+    "state": "complete",
+    "detail": "2 changes found"
+  },
+  {
+    "state": "complete",
+    "detail": "PDF layout changed, re-extracted with OCR"
+  },
+  {
+    "state": "complete",
+    "detail": "No change since last scan"
+  },
+  {
+    "state": "attention",
+    "detail": "Page moved, followed redirect. Confirm new URL"
+  },
+  {
+    "state": "complete",
+    "detail": "1 change found"
+  },
+  {
+    "state": "complete",
+    "detail": "No change since last scan"
+  },
+  {
+    "state": "complete",
+    "detail": "New edition published, 4 changes found"
+  }
+]

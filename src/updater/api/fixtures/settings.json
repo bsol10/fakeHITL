@@ -1,0 +1,24 @@
+{
+  "scan": {
+    "frequency": "weekly",
+    "run_on": "Monday, 9:00 am",
+    "topics": [
+      "Education",
+      "Wellbeing",
+      "Employment",
+      "Housing",
+      "Funding"
+    ],
+    "retry_blocked": true,
+    "skip_unchanged": true,
+    "paused": false
+  },
+  "thresholds": {
+    "flag_below": 70,
+    "change_sensitivity": "balanced"
+  },
+  "policies": {
+    "only_cite_approved": true,
+    "staff_sign_off": true
+  }
+}

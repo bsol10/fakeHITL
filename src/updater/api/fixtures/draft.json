@@ -1,0 +1,56 @@
+[
+  {
+    "claim_id": 1,
+    "sent": "Youth unemployment in Western Sydney rose to 13.1% in 2026, up from 11.4% the previous year, driven largely by reduced entry-level hiring in retail and hospitality.",
+    "passage": "youth unemployment across Western Sydney LGAs reached 13.1 per cent in the March quarter, compared to 11.4 per cent in the same period last year",
+    "prev": "Youth unemployment in Western Sydney sat at 11.4% in 2025, slightly above the state average."
+  },
+  {
+    "claim_id": 2,
+    "sent": "The three biggest barriers to youth employment remain transport, a lack of work experience and the cost of training.",
+    "passage": "respondents most often cited transport (61%), lack of work experience (54%) and the cost of training or accreditation (47%)",
+    "prev": "The three biggest barriers to youth employment remain transport, a lack of work experience and the cost of training."
+  },
+  {
+    "claim_id": 3,
+    "sent": "Young people in regional NSW are 9.7 percentage points less likely to complete Year 12 than their metropolitan peers.",
+    "passage": "Year 12 completion: metropolitan 86.4%, regional 76.7%, a gap of 9.7 percentage points",
+    "prev": null
+  },
+  {
+    "claim_id": 5,
+    "sent": "Regional estimates should be read with care, as three local government areas had fewer than 200 respondents.",
+    "passage": "regional estimates are based on n < 200 in three LGAs and carry wider confidence intervals",
+    "prev": "Regional estimates should be read with care, as three local government areas had fewer than 200 respondents."
+  },
+  {
+    "claim_id": 6,
+    "sent": "In 2025-26, 29,150 young people in NSW used specialist homelessness services, up 6.8% on the previous year.",
+    "passage": "29,150 clients aged 12 to 24 were supported by specialist homelessness services in 2025-26",
+    "prev": "In 2024, 27,300 young people in NSW used specialist homelessness services."
+  },
+  {
+    "claim_id": 7,
+    "sent": "Note that homelessness data now covers the financial year (July to June) rather than the calendar year, so figures are not directly comparable with earlier reports.",
+    "passage": "from this edition, reporting moves to a financial year basis",
+    "prev": "Data covers the calendar year January to December 2024."
+  },
+  {
+    "claim_id": 8,
+    "sent": "Children with two or more years of early learning were 1.4 times more likely to meet the Year 3 reading benchmark.",
+    "passage": "children with 2+ years of ECEC attendance were 1.4 times more likely (95% CI 1.2 to 1.6) to meet the Year 3 reading benchmark",
+    "prev": null
+  },
+  {
+    "claim_id": 9,
+    "sent": "Wellbeing figures come from a quarterly online survey of around 4,000 young people aged 12 to 25.",
+    "passage": "the tracker surveys approximately 4,000 respondents aged 12 to 25 each quarter",
+    "prev": "Wellbeing figures come from a quarterly online survey of around 4,000 young people aged 12 to 25."
+  },
+  {
+    "claim_id": 10,
+    "sent": "Community foundation giving to youth programs fell to $38.9 million in 2025, down from $41.2 million.",
+    "passage": "grants directed to youth-focused programs totalled $38.9m, down 5.6% year on year",
+    "prev": "Community foundation giving to youth programs reached $41.2 million in 2024."
+  }
+]

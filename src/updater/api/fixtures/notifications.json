@@ -1,0 +1,186 @@
+[
+  {
+    "id": 1,
+    "kind": "review",
+    "ico": "p",
+    "when": "today",
+    "t": "10:26 am",
+    "title": "8 findings are waiting for your review",
+    "unread": true,
+    "body": "Extraction finished for the annual update. 5 updated statistics, 2 new findings and 1 unchanged caveat are ready in Draft review. About 20 minutes of reviewing.",
+    "acts": [
+      [
+        "Open draft review",
+        "draft",
+        "primary"
+      ],
+      [
+        "See the comparison",
+        "extract"
+      ]
+    ]
+  },
+  {
+    "id": 2,
+    "kind": "scan",
+    "ico": "g",
+    "when": "today",
+    "t": "10:24 am",
+    "title": "Source scan completed",
+    "unread": true,
+    "body": "42 sources checked in 9m 42s. 3 changes found across 2 sources. 2 sources were blocked by a login wall and skipped after one retry.",
+    "acts": [
+      [
+        "View scan results",
+        "scan",
+        "primary"
+      ],
+      [
+        "Re-run blocked sources",
+        "scan"
+      ]
+    ]
+  },
+  {
+    "id": 3,
+    "kind": "source",
+    "ico": "r",
+    "when": "today",
+    "t": "10:25 am",
+    "title": "URL changed: Community Foundations Giving Report",
+    "unread": true,
+    "body": "The page moved to a new address. The agent followed the redirect and retrieved the report, but it needs you to confirm the new URL before the next scheduled scan uses it.",
+    "acts": [
+      [
+        "Review source",
+        "sources",
+        "primary"
+      ],
+      [
+        "Confirm new URL",
+        "toast:New URL confirmed"
+      ]
+    ]
+  },
+  {
+    "id": 4,
+    "kind": "review",
+    "ico": "b",
+    "when": "today",
+    "t": "9:12 am",
+    "title": "J. Ferreira mentioned you on a claim",
+    "unread": true,
+    "body": "On <q>Regional vs metro completion gap</q>: \"Kathleen, is the regional breakdown the ABS one or the department’s? The report should say which.\"",
+    "acts": [
+      [
+        "Reply in draft review",
+        "draft",
+        "primary"
+      ]
+    ]
+  },
+  {
+    "id": 5,
+    "kind": "scan",
+    "ico": "y",
+    "when": "yesterday",
+    "t": "1:32 pm",
+    "title": "3 new changes detected",
+    "unread": false,
+    "body": "Across Youth Employment Outlook 2026 and NSW Youth Homelessness Snapshot. Two are updated figures, one is a change to the reporting period.",
+    "acts": [
+      [
+        "Compare changes",
+        "extract",
+        "primary"
+      ]
+    ]
+  },
+  {
+    "id": 6,
+    "kind": "system",
+    "ico": "k",
+    "when": "yesterday",
+    "t": "1:41 pm",
+    "title": "Test suite: 47 of 49 passing",
+    "unread": false,
+    "body": "Two tests are failing: EX-07 (PDF table with merged cells) and GR-03 (blocked source retried twice instead of once). Neither affects published output. Citation accuracy is 98.6%.",
+    "acts": [
+      [
+        "View test results",
+        "settings:s-tests",
+        "primary"
+      ]
+    ]
+  },
+  {
+    "id": 7,
+    "kind": "source",
+    "ico": "y",
+    "when": "yesterday",
+    "t": "11:05 am",
+    "title": "Mental Health in Schools Dataset needs sign-off",
+    "unread": false,
+    "body": "Added by R. Osei. The agent will not scan it until a Research Lead approves it. Format: dataset, updates annually, topic: Wellbeing.",
+    "acts": [
+      [
+        "Approve source",
+        "toast:Source approved",
+        "primary"
+      ],
+      [
+        "View in registry",
+        "sources"
+      ]
+    ]
+  },
+  {
+    "id": 8,
+    "kind": "review",
+    "ico": "g",
+    "when": "earlier",
+    "t": "12 Sep",
+    "title": "Mental health and wellbeing section published",
+    "unread": false,
+    "body": "Signed off by Kathleen D. and published to the website and Google Drive. 6 claims approved, 1 edited, 0 flagged. The audit log is locked for this edition.",
+    "acts": [
+      [
+        "Open audit log",
+        "publish",
+        "primary"
+      ]
+    ]
+  },
+  {
+    "id": 9,
+    "kind": "system",
+    "ico": "b",
+    "when": "earlier",
+    "t": "14 Sep",
+    "title": "Invite for invitee@example.org still pending",
+    "unread": false,
+    "body": "The invite was sent 2 days ago and has not been accepted. You can resend it or remove it from Team settings.",
+    "acts": [
+      [
+        "Resend invite",
+        "toast:Invite resent",
+        "primary"
+      ],
+      [
+        "Team settings",
+        "settings:s-team"
+      ]
+    ]
+  },
+  {
+    "id": 10,
+    "kind": "system",
+    "ico": "k",
+    "when": "earlier",
+    "t": "10 Sep",
+    "title": "Scheduled maintenance: Sunday 20 September",
+    "unread": false,
+    "body": "The agent will be offline from 2:00 am to 3:00 am AEST. No scans are scheduled in that window. Nothing you need to do.",
+    "acts": []
+  }
+]

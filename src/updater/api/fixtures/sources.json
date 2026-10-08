@@ -1,0 +1,134 @@
+[
+  {
+    "id": "youth-employment-outlook-2026",
+    "name": "Youth Employment Outlook 2026",
+    "url": "https://abs.gov.au/employment",
+    "owner": "J. Ferreira",
+    "topic": "Employment",
+    "format": "PDF",
+    "update_frequency": "Annual",
+    "status": "approved",
+    "last_checked": "2026-09-13T09:00:00+10:00"
+  },
+  {
+    "id": "nsw-youth-homelessness-snapshot",
+    "name": "NSW Youth Homelessness Snapshot",
+    "url": "https://facs.nsw.gov.au",
+    "owner": "K. Donohoe",
+    "topic": "Housing",
+    "format": "Web",
+    "update_frequency": "Quarterly",
+    "status": "approved",
+    "last_checked": "2026-09-15T09:00:00+10:00"
+  },
+  {
+    "id": "mental-health-in-schools-dataset",
+    "name": "Mental Health in Schools Dataset",
+    "url": "https://aihw.gov.au/datasets",
+    "owner": "R. Osei",
+    "topic": "Wellbeing",
+    "format": "Dataset",
+    "update_frequency": "Annual",
+    "status": "pending",
+    "last_checked": null
+  },
+  {
+    "id": "community-foundations-giving-report",
+    "name": "Community Foundations Giving Report",
+    "url": "https://philanthropy.org.au",
+    "owner": "J. Ferreira",
+    "topic": "Funding",
+    "format": "PDF",
+    "update_frequency": "Annual",
+    "status": "url_changed",
+    "last_checked": "2026-09-02T09:00:00+10:00"
+  },
+  {
+    "id": "regional-education-access-index",
+    "name": "Regional Education Access Index",
+    "url": "https://education.gov.au",
+    "owner": "K. Donohoe",
+    "topic": "Education",
+    "format": "Web",
+    "update_frequency": "Annual",
+    "status": "approved",
+    "last_checked": "2026-09-13T09:00:00+10:00"
+  },
+  {
+    "id": "tertiary-scholarship-uptake-survey",
+    "name": "Tertiary Scholarship Uptake Survey",
+    "url": "https://ncver.edu.au",
+    "owner": "R. Osei",
+    "topic": "Scholarships",
+    "format": "Dataset",
+    "update_frequency": "Annual",
+    "status": "approved",
+    "last_checked": "2026-09-10T09:00:00+10:00"
+  },
+  {
+    "id": "early-childhood-participation-report",
+    "name": "Early Childhood Participation Report",
+    "url": "https://acecqa.gov.au",
+    "owner": "J. Ferreira",
+    "topic": "Education",
+    "format": "PDF",
+    "update_frequency": "Annual",
+    "status": "approved",
+    "last_checked": "2026-09-16T09:00:00+10:00"
+  },
+  {
+    "id": "rental-affordability-index",
+    "name": "Rental Affordability Index",
+    "url": "https://sgsep.com.au/rai",
+    "owner": "K. Donohoe",
+    "topic": "Housing",
+    "format": "Web",
+    "update_frequency": "Half-yearly",
+    "status": "url_changed",
+    "last_checked": "2026-09-07T09:00:00+10:00"
+  },
+  {
+    "id": "youth-wellbeing-tracker",
+    "name": "Youth Wellbeing Tracker",
+    "url": "https://headspace.org.au/research",
+    "owner": "R. Osei",
+    "topic": "Wellbeing",
+    "format": "Web",
+    "update_frequency": "Quarterly",
+    "status": "approved",
+    "last_checked": "2026-09-14T09:00:00+10:00"
+  },
+  {
+    "id": "acnc-charity-sector-data",
+    "name": "ACNC Charity Sector Data",
+    "url": "https://acnc.gov.au",
+    "owner": "J. Ferreira",
+    "topic": "Funding",
+    "format": "Dataset",
+    "update_frequency": "Annual",
+    "status": "pending",
+    "last_checked": null
+  },
+  {
+    "id": "jobs-and-skills-australia-youth-report",
+    "name": "Jobs and Skills Australia Youth Report",
+    "url": "https://jobsandskills.gov.au",
+    "owner": "K. Donohoe",
+    "topic": "Employment",
+    "format": "PDF",
+    "update_frequency": "Annual",
+    "status": "approved",
+    "last_checked": "2026-09-11T09:00:00+10:00"
+  },
+  {
+    "id": "equity-scholarships-outcomes-study",
+    "name": "Equity Scholarships Outcomes Study",
+    "url": "https://ncsehe.edu.au",
+    "owner": "R. Osei",
+    "topic": "Scholarships",
+    "format": "PDF",
+    "update_frequency": "Biennial",
+    "status": "paused",
+    "last_checked": "2026-08-06T09:00:00+10:00"
+  }
+]

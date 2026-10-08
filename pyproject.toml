@@ -1,0 +1,131 @@
+[project]
+name = "asil-updater"
+version = "0.1.0"
+description = "Annual Research Update Agent for A Start in Life — retrieval-first, citation-anchored."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "bsol10", email = "brasolis10@outlook.com" }]
+dependencies = [
+    "anthropic>=0.125.0",
+    "filetype>=1.2.0",
+    "openpyxl>=3.1.5",
+    "pypdf>=6.16.1",
+    "python-docx>=1.2.0",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6.0.3",
+    "trafilatura>=2.2.0",
+]
+
+# PDF/HTML/DOCX ingestion is core, not optional -- the project does nothing
+# without it. Only the genuinely heavy stacks stay behind an extra, so a fresh
+# clone does not pull torch: uv sync --extra retrieve
+[project.optional-dependencies]
+retrieve = [
+    "sentence-transformers>=6.0.1",
+    "sqlite-vec>=0.1.9",
+]
+ui = []
+# The HTTP API the dashboard runs on (`updater serve`). python-multipart is what
+# FastAPI needs to accept the prior-report upload.
+api = [
+    "fastapi>=0.142.2",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.54.0",
+]
+gemini = [
+    "google-genai>=2.29.0",
+]
+prototype = [
+    "llama-index-core>=0.14.25",
+    "llama-index-llms-google-genai>=0.11.2",
+    "pydantic>=2.13.4",
+]
+
+[project.scripts]
+updater = "updater.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/updater"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+# Live tests call a paid model API, so a plain `uv run pytest` never runs them.
+# `uv run pytest -m live` does: the later -m wins.
+addopts = "-ra --strict-markers --strict-config -m 'not live'"
+markers = [
+    "live: calls a paid model API; needs its key, deselected unless -m live",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+target-version = "py312"
+# Ruff formats Python blocks inside Markdown. BUILD_SPEC.md is the contract and
+# DESIGN.md is the rulebook — neither is ours to reformat. src/backend is the
+# group's Gemini prototype: retiring it is a separate, agreed change, so neither
+# `ruff check --fix` nor `ruff format` may rewrite it in the meantime.
+extend-exclude = ["*.md", "src/backend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# PEP 695 syntax (`type X = ...`, `class C[T]`) is 3.12-only *at parse time*, so
+# adopting it would make the source a SyntaxError on 3.11 rather than merely
+# unsupported. The declared floor is 3.12 and the type checker runs against it,
+# but the source is deliberately held 3.11-parsable so that dropping the floor
+# for a 3.11 deployment target stays a one-line change instead of a port.
+# See the decisions log, 2026-09-08.
+ignore = ["UP040", "UP046", "UP047"]
+
+[tool.mypy]
+python_version = "3.12"
+# Not "src": src/backend is the group prototype (see the ruff note above), and
+# the group repo's src/__init__.py makes "src" a package, so without explicit
+# bases every module is found twice, as src.updater.x and as updater.x.
+files = ["src/updater", "tests"]
+explicit_package_bases = true
+mypy_path = ["src", "tests"]
+strict = true
+warn_unreachable = true
+
+# Third-party packages that ship no type information. Listed one by one rather
+# than globally, so a package that starts shipping types gets type-checked.
+[[tool.mypy.overrides]]
+module = [
+    "filetype.*",
+    "lxml.*",
+    "trafilatura.*",
+    "reportlab.*",
+    "sqlite_vec.*",
+    "sentence_transformers.*",
+]
+ignore_missing_imports = true
+
+# The group repo's own tests, kept as they were written rather than annotated.
+[[tool.mypy.overrides]]
+module = ["test_basic", "test_repoagent"]
+disallow_untyped_defs = false
+
+[tool.uv]
+# This network intercepts TLS, so uv's bundled roots reject GitHub and PyPI with
+# `invalid peer certificate: UnknownIssuer`. Reading the OS certificate store
+# picks up the proxy's CA. Harmless off this network — every supported platform
+# has a store for uv to read.
+system-certs = true
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "reportlab>=5.0.1",
+    "ruff>=0.16.3",
+    "types-openpyxl>=3.1.5.20260807",
+    "types-pyyaml>=6.0.12.20260906",
+]

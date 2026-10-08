@@ -1,0 +1,22 @@
+[
+  {
+    "label": "Sources approved",
+    "percent": 92,
+    "detail": "42 of 46 active"
+  },
+  {
+    "label": "Scan coverage",
+    "percent": 88,
+    "detail": "This week's run"
+  },
+  {
+    "label": "Findings reviewed",
+    "percent": 74,
+    "detail": "8 of 11 resolved"
+  },
+  {
+    "label": "System reliability",
+    "percent": 96,
+    "detail": "Last 30 days"
+  }
+]

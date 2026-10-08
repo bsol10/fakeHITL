@@ -1,0 +1,26 @@
+[
+  {
+    "ico": "g",
+    "title": "Source scan completed",
+    "detail": "Education, early childhood",
+    "when": "Today, 10:24 am"
+  },
+  {
+    "ico": "y",
+    "title": "3 new changes detected",
+    "detail": "Across 2 sources",
+    "when": "Yesterday, 1:32 pm"
+  },
+  {
+    "ico": "p",
+    "title": "Draft generated",
+    "detail": "Mental health and wellbeing",
+    "when": "12 Sep 2026"
+  },
+  {
+    "ico": "r",
+    "title": "2 sources returned a login wall",
+    "detail": "Skipped during last scan",
+    "when": "12 Sep 2026"
+  }
+]

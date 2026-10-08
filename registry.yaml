@@ -1,0 +1,117 @@
+# The approved-source registry — design rule 3.
+#
+# If a document is not listed here, it is not evidence. Nothing in the pipeline
+# may cite a file that is absent from this list, and no stage invents a Source:
+# `updater ingest` refuses an unregistered path rather than reading it.
+#
+# Fields, per BUILD_SPEC.md section 2:
+#
+#   id                 stable slug; it appears in every anchor and passage id,
+#                      so changing one orphans last year's citations
+#   title              how the source is cited to a human
+#   url_or_path        a path (relative to this file) or a URL
+#   owner              who publishes it — the body accountable for the figures
+#   topic              what it is evidence about
+#   year               the edition, not the year we read it
+#   update_frequency   annual | biennial | half-yearly | quarterly | monthly |
+#                      irregular | unknown  ("biannual" is refused as ambiguous)
+#   media_type         IANA type; sniffing wins if the file disagrees
+#   notes              free text for a human (optional, ignored by the loader)
+#   last_checked       written back by the fetch stage (optional)
+#   last_content_hash  likewise (optional)
+#
+# NEEDS ASIL'S REVIEW: `owner`, `topic` and `year` below were filled in from the
+# filenames, which is the only information the build had. They are the two
+# fields a real entry must carry and the two nobody can derive from a document's
+# bytes, so check them before this drives a published draft.
+
+sources:
+  - id: asil-enterprise-skills-report-2026
+    title: ASIL Enterprise Skills Report 2026
+    url_or_path: data/sources/ASIL_Enterprise_Skills_Report_2026.docx
+    owner: A Start in Life
+    topic: enterprise skills demand in Australian job advertisements
+    year: 2026
+    update_frequency: annual
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    notes: >-
+      The main research report: 161 passages, ~30% of its text in tables.
+      Paragraph 194 carries the 176-character source URL that forced the
+      overlong-token exemption in the quality gate.
+
+  - id: asil-executive-summary-2026
+    title: ASIL Executive Summary and Recommendations
+    url_or_path: data/sources/ASIL_Executive_Summary_and_Recommendations.docx
+    owner: A Start in Life
+    topic: headline findings and recommendations
+    year: 2026
+    update_frequency: annual
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - id: asil-jobs-of-the-future
+    title: ASIL Jobs of the Future
+    url_or_path: data/sources/ASIL_Jobs_of_the_Future.docx
+    owner: A Start in Life
+    topic: automation risk by industry and the skills that resist it
+    year: 2026
+    update_frequency: unknown
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    notes: >-
+      Source of three of the four header-detection bugs in the decisions log.
+      Its two banner-split tables are the shape that breaks naive header search.
+
+  - id: asil-industry-summary
+    title: ASIL Industry Summary
+    url_or_path: data/sources/ASIL_Industry_Summary.docx
+    owner: A Start in Life
+    topic: skills demand by ANZSIC industry division
+    year: 2026
+    update_frequency: unknown
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - id: asil-program-response
+    title: ASIL Program Response
+    url_or_path: data/sources/ASIL_Program_Response.docx
+    owner: A Start in Life
+    topic: programme implications of the research findings
+    year: 2026
+    update_frequency: unknown
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - id: asil-comparative-analysis-section
+    title: ASIL Comparative Analysis Section
+    url_or_path: data/sources/ASIL_Comparative_Analysis_Section.docx
+    owner: A Start in Life
+    topic: comparison of ASIL 2026 findings against the FYA New Basics study
+    year: 2026
+    update_frequency: unknown
+    media_type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - id: fya-vs-asil-comparative-analysis
+    title: FYA vs ASIL Comparative Analysis
+    url_or_path: data/sources/FYA_vs_ASIL_Comparative_Analysis.xlsx
+    owner: A Start in Life
+    topic: FYA New Basics (2016) against ASIL Research (2026), by skill and industry
+    year: 2026
+    update_frequency: unknown
+    media_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    notes: >-
+      The workbook behind two header-detection fixes: sheet "Overview" has an
+      empty header corner, sheet "Salary Premiums" stacks two tables under one
+      tab. Underlying FYA figures are attributed to the Foundation for Young
+      Australians, New Work Order series (2016) — confirm before citing them as
+      ASIL's own.
+
+  - id: asil-enterprise-skills-briefing-2026
+    title: ASIL Enterprise Skills Briefing 2026
+    url_or_path: data/sources/ASIL_Enterprise_Skills_Briefing_2026.pptx
+    owner: A Start in Life
+    topic: briefing deck summarising the 2026 enterprise skills findings
+    year: 2026
+    update_frequency: annual
+    media_type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+    notes: >-
+      APPROVED BUT NOT YET READABLE. There is no PPTX adapter, so ingest reports
+      UnsupportedMediaType for this entry. It is listed rather than omitted so
+      the gap stays visible: a source silently missing from the registry is
+      indistinguishable, downstream, from a source that says nothing.
