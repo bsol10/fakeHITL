@@ -1,27 +1,13 @@
 """The provider interface: what evidence extraction needs from a language model.
 
-BACKEND_PLAN.md phase 5 puts the model "behind a small provider interface", and
-this is all of it: send a system prompt, a user prompt and a JSON schema, get
-back the JSON the model wrote and the name of the model that wrote it. Nothing
-here knows about passages, anchors or claims — :mod:`updater.extract.evidence`
-owns those — and nothing here imports a provider SDK, so the interface can be
-imported, implemented and faked without either SDK installed.
+Send a system prompt, a user prompt and a JSON schema; get back the JSON the
+model wrote and the name of the model that wrote it (BACKEND_PLAN.md phase 5).
+Nothing here knows about passages or claims, and nothing imports a provider
+SDK, so the interface can be implemented and faked without either installed.
 
-Two failures, kept apart because they need different people:
-
-:class:`ModelUnavailable`
-    No model can be called at all: a key or a model id is missing, the SDK is
-    not installed, the provider name is wrong. A configuration error, raised
-    before any request is sent. It is never turned into an empty result — an
-    empty result reads as "the sources say nothing", which is a finding about
-    the world, and a missing key is not one.
-:class:`ModelCallFailed`
-    The provider was called and did not return a usable reply: an API or
-    network error, a refusal, a reply cut off at the token limit, a reply with
-    no text. Also never an empty result, for the same reason.
-
-The model id is configuration, not code (BACKEND_PLAN.md phase 5): each
-provider reads it from the environment and refuses to start without one.
+Neither error is ever turned into an empty result: an empty result reads as
+"the sources say nothing", a finding about the world, and a missing key or a
+failed call is not one.
 """
 
 from __future__ import annotations
@@ -54,21 +40,21 @@ class ModelUnavailable(ModelError):
 
 
 class ModelCallFailed(ModelError):
-    """The provider was called and returned nothing usable."""
+    """The provider was called and returned nothing usable: an API or network
+    error, a refusal, a reply cut off at the token limit, no text, or JSON that
+    is not the requested shape."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ModelReply:
     """What came back from one call.
 
-    ``model`` is the model the API *says* answered, not the one that was asked
-    for. The two differ whenever the configured id is an alias, and a reviewer
-    asking "which model wrote this?" a year later needs the one that did.
+    ``model`` is the model the API *says* answered, not the one asked for; the
+    two differ whenever the configured id is an alias.
     """
 
     text: str
-    """The reply's JSON exactly as the model wrote it. Parsing and checking it
-    is the extract stage's job, not the provider's."""
+    """The reply's JSON exactly as the model wrote it, unparsed."""
     model: str
     provider: str
 

@@ -1,23 +1,17 @@
 """Claude behind :class:`~updater.extract.model.EvidenceModel`.
 
-The only module in the package that imports ``anthropic``. Nothing imports it
-except :func:`updater.extract.provider.model_from_env`, and only when the
-anthropic provider is selected, so choosing Gemini never loads this SDK.
+The only module that imports ``anthropic``, and only
+:func:`updater.extract.provider.model_from_env` imports it, when the anthropic
+provider is selected.
 
 Structured output is the Messages API's ``output_config`` with a
-``json_schema`` format, as the installed SDK (0.125) declares it in
-``anthropic.types.OutputConfigParam``. No sampling parameters are sent: the
-model's defaults stand, which keeps a model change from being refused over a
-parameter it no longer accepts.
+``json_schema`` format (``anthropic.types.OutputConfigParam``). No sampling
+parameters are sent, so a model change cannot be refused over a parameter the
+new model no longer accepts.
 
-Configuration, all from the environment (``.env`` via the CLI):
-
-``ANTHROPIC_API_KEY``
-    Required. Missing is :class:`ModelUnavailable`.
-``ANTHROPIC_MODEL``
-    Required, and deliberately without a default in code: the model id is
-    configuration (BACKEND_PLAN.md phase 5). ``.env.example`` carries the
-    project's choice, and the 2026-08-20 decision says why it is that one.
+``ANTHROPIC_API_KEY`` and ``ANTHROPIC_MODEL`` are both required, from the
+environment (``.env`` via the CLI). The model id has no default in code: it is
+configuration, and ``.env.example`` carries the project's choice.
 """
 
 from __future__ import annotations

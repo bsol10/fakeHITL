@@ -107,18 +107,12 @@ def test_clean_passages_come_back_unchanged(tmp_path: Path) -> None:
     assert accepted == passages
 
 
-# --------------------------------------------------------------------------- #
 # Long tokens that are not failures
-# --------------------------------------------------------------------------- #
 
 
 def test_a_long_url_does_not_fail_a_passage() -> None:
-    """Regression, from ASIL_Enterprise_Skills_Report_2026.docx paragraph 194.
-
-    A 176-character link to a Senate committee report, in a sources line, failed
-    the whole 161-passage document. The check is for text that has lost its
-    spaces; a bibliography is not that.
-    """
+    """Regression, from a sources line in a real ASIL report. The check is for
+    text that has lost its spaces, which a URL has not."""
     url = (
         "https://www.aph.gov.au/Parliamentary_Business/Committees/Senate/"
         "Adopting_Artificial_Intelligence_AI/AdoptingAI/Report/"
@@ -140,7 +134,6 @@ def test_a_long_email_address_does_not_fail_a_passage() -> None:
 
 
 def test_a_smeared_paragraph_still_fails() -> None:
-    """The failure the check actually exists for, still caught."""
     passage = make_passage("Enterpriseskillsdemandroseacrosseveryindustrydivision" * 2)
 
     failure = check_passage(passage)

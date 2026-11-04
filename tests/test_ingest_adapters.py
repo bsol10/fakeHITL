@@ -1,10 +1,8 @@
 """Adapter tests (BUILD_SPEC.md section 3).
 
-Every test here asserts the *locator*, not just the text, because that is the
-thing the spec warns will silently break. Text extraction failing is loud. A
-page number that is off by one is not: it produces a draft full of citations
-that look perfectly plausible and point at the wrong page, which is the one
-failure mode this project cannot survive.
+Every test here asserts the *locator*, not just the text. Text extraction
+failing is loud; a page number off by one is not, and produces plausible
+citations that point at the wrong page.
 """
 
 from __future__ import annotations
@@ -30,9 +28,7 @@ from conftest import (
 from updater.ingest import NeedsOCR, extract
 from updater.models import MediaType
 
-# --------------------------------------------------------------------------- #
 # PDF
-# --------------------------------------------------------------------------- #
 
 
 def test_pdf_passages_are_page_anchored(tmp_path: Path) -> None:
@@ -57,12 +53,9 @@ def test_pdf_skips_blank_pages_without_renumbering(tmp_path: Path) -> None:
 
 
 def test_a_page_passage_holds_no_text_from_its_neighbours(tmp_path: Path) -> None:
-    """The chunk-boundary rule (BUILD_SPEC.md section 4) starts being true here.
-
-    Asserting that page 2's text is present is not enough — it would still pass
-    if the reader had leaked pages 1 and 3 in alongside it. The absence is the
-    part that makes the anchor unambiguous.
-    """
+    """Page 2's text being present would still pass if the reader had leaked
+    pages 1 and 3 in alongside it. The absence is what makes the anchor
+    unambiguous."""
     path = write_sentinel_pdf(tmp_path / "three-pages.pdf")
 
     passages = extract(path, make_source(media_type=MediaType.PDF))
@@ -103,17 +96,12 @@ def test_scanned_pdf_raises_needs_ocr(tmp_path: Path) -> None:
     assert "ocrmypdf" in str(error)
 
 
-# --------------------------------------------------------------------------- #
 # DOCX
-# --------------------------------------------------------------------------- #
 
 
 def test_docx_paragraph_index_addresses_the_real_document(tmp_path: Path) -> None:
-    """Index 2 is an empty paragraph. Skipping it must not renumber index 3.
-
-    This is the silent breakage the spec is warning about: dense renumbering
-    still produces citations, they just point at the wrong paragraph.
-    """
+    """Index 2 is an empty paragraph. Skipping it must not renumber index 3:
+    dense renumbering still produces citations, to the wrong paragraph."""
     path = write_docx(tmp_path / "minutes.docx")
 
     passages = extract(path, make_source(media_type=MediaType.DOCX))
@@ -134,13 +122,11 @@ def test_docx_keeps_the_documents_own_style_names(tmp_path: Path) -> None:
     assert locators[1].style == "Normal"
 
 
-# --------------------------------------------------------------------------- #
 # HTML
-# --------------------------------------------------------------------------- #
 
 
 def test_html_passages_carry_the_heading_trail(tmp_path: Path) -> None:
-    """The trail is the durable half of a web citation — assert it resets."""
+    """The trail is the durable half of a web citation."""
     path = write_html(tmp_path / "destinations.html")
 
     passages = extract(path, make_source(media_type=MediaType.HTML))
@@ -181,9 +167,7 @@ def test_html_strips_navigation_and_footer(tmp_path: Path) -> None:
     assert "Sustained destinations" in joined
 
 
-# --------------------------------------------------------------------------- #
 # Cross-format
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(

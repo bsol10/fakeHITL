@@ -1,9 +1,8 @@
-"""The endpoints. Thin on purpose: each one is a call into the state.
+"""The endpoints, each a thin call into the state.
 
 Response types come from the return annotations, so the contract in
-:mod:`updater.api.schemas` is also what ``/docs`` publishes and what every
-response is checked against on its way out. Endpoints appear in the order of
-the contract table in BACKEND_PLAN.md.
+:mod:`updater.api.schemas` is what ``/docs`` publishes and what every response
+is checked against. Endpoints follow the contract table in BACKEND_PLAN.md.
 """
 
 from __future__ import annotations
@@ -46,7 +45,7 @@ def _state(request: Request) -> MockState:
 State = Annotated[MockState, Depends(_state)]
 
 
-# --- dashboard and header --------------------------------------------------
+# Dashboard and header
 
 
 @router.get("/summary", tags=["dashboard"])
@@ -64,7 +63,7 @@ def notifications(state: State) -> list[Notification]:
     return state.notifications
 
 
-# --- 1 Source registry -----------------------------------------------------
+# 1 Source registry
 
 
 @router.get("/sources", tags=["1 source registry"])
@@ -84,7 +83,7 @@ def update_source(source_id: str, body: SourceUpdate, state: State) -> Source:
     return state.update_source(source_id, body)
 
 
-# --- 2 Source scan ---------------------------------------------------------
+# 2 Source scan
 
 
 @router.post("/runs", status_code=201, tags=["2 source scan"])
@@ -99,7 +98,7 @@ def poll_run(run_id: str, state: State) -> Run:
     return state.poll_run(run_id)
 
 
-# --- 3 Extraction ----------------------------------------------------------
+# 3 Extraction
 
 
 @router.get("/runs/{run_id}/claims", tags=["3 extraction"])
@@ -120,7 +119,7 @@ def prior_report(file: UploadFile, state: State) -> PriorReport:
     return state.receive_prior_report(file.filename or "upload", file.file.read())
 
 
-# --- 4 Draft review --------------------------------------------------------
+# 4 Draft review
 
 
 @router.get("/runs/{run_id}/draft", tags=["4 draft review"])
@@ -139,7 +138,7 @@ def audit(run_id: str, state: State) -> list[AuditEntry]:
     return state.audit(run_id)
 
 
-# --- 5 Sign-off ------------------------------------------------------------
+# 5 Sign-off
 
 
 @router.get("/runs/{run_id}/publish", tags=["5 sign-off"])
@@ -168,7 +167,7 @@ def export(
     )
 
 
-# --- Settings --------------------------------------------------------------
+# Settings
 
 
 @router.get("/settings", tags=["settings"])

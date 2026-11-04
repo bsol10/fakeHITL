@@ -1,13 +1,11 @@
 """The pipeline glue: registry to index, on generated files and on real ones.
 
-``index_registry`` is where the stages meet, so it is where the failures that
-span two stages show up — a source that extracts but does not chunk, an anchor
-that survives ingest and is lost on the way into SQLite.
+``index_registry`` is where the stages meet, so failures that span two stages
+show up here: a source that extracts but does not chunk, an anchor that
+survives ingest and is lost on the way into SQLite.
 
 The real-document tests skip when ``data/sources`` is empty, so a checkout with
-no client material still runs the suite. They are worth having anyway: every
-chunking-adjacent bug this project has met came from a real file, and none from
-a generated fixture. Client documents stay out of the repository.
+no client material still runs the suite.
 """
 
 from __future__ import annotations
@@ -65,9 +63,7 @@ def real_documents() -> list[Path]:
     )
 
 
-# --------------------------------------------------------------------------- #
 # Generated files, end to end
-# --------------------------------------------------------------------------- #
 
 
 def test_a_registered_document_goes_from_disk_to_searchable(
@@ -152,8 +148,8 @@ def test_one_bad_source_does_not_stop_the_others(
 def test_a_pdf_page_chunk_never_reaches_into_the_next_page(
     tmp_path: Path, counter: TokenCounter
 ) -> None:
-    """The rule BUILD_SPEC.md section 4 states in so many words, tested through
-    the whole pipeline rather than on the chunker alone."""
+    """BUILD_SPEC.md section 4's rule, through the whole pipeline rather than
+    on the chunker alone."""
     path = write_pdf(tmp_path / "report.pdf", [PAGE_ONE, PAGE_TWO])
     source = make_source(media_type=MediaType.PDF)
 
@@ -205,9 +201,7 @@ def test_only_the_named_sources_are_indexed(
         assert store.source_ids() == ["two"]
 
 
-# --------------------------------------------------------------------------- #
 # Real ASIL documents
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(
@@ -216,8 +210,7 @@ def test_only_the_named_sources_are_indexed(
 def test_chunking_a_real_document_keeps_every_anchor_inside_its_unit(
     path: Path, counter: TokenCounter
 ) -> None:
-    """Run over the client's own material, which is where every chunking-adjacent
-    bug in this project has come from."""
+    """Real files, not generated fixtures, are where these bugs have come from."""
     from updater.ingest import extract
 
     source = make_source(source_id=path.stem, media_type=MediaType.DOCX)
@@ -245,9 +238,8 @@ def test_a_known_real_row_survives_the_whole_pipeline(
     """The two-header workbook, indexed and retrieved.
 
     ``$109,860`` is an average salary that an earlier bug captioned as a pay
-    premium. The label is part of the passage text, so this asserts through the
-    index what the tabular tests assert at extraction: correct anchors are not
-    enough, the column name has to be right too.
+    premium. Correct anchors are not enough: the column name in the passage text
+    has to survive indexing too.
     """
     workbook = SOURCES / "FYA_vs_ASIL_Comparative_Analysis.xlsx"
     if not workbook.is_file():

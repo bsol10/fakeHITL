@@ -1,13 +1,10 @@
 """The dashboard, served beside the API, and the contract between the two.
 
 ``front-end/index.html`` is the approved prototype with its hardcoded arrays
-replaced by calls to ``/api``. Two things can break that silently and are
+replaced by calls to ``/api``. Two things can break that silently, and are
 checked here without a browser: the page calling an endpoint the API does not
-have (a typo is a 404 nobody sees until the screen is empty), and the page
-still carrying the prototype's literal data, which would show fixtures as if
-they came from the API. The first test is the contract test: every
-``api(method, path)`` call in the page must name a route and method in the
-API's own OpenAPI document.
+have (a 404 that just shows an empty screen), and the page still carrying the
+prototype's literal data.
 """
 
 from __future__ import annotations
@@ -143,9 +140,7 @@ def test_api_values_go_into_markup_escaped() -> None:
     assert "m.textContent = text" in script, "a typed chat message is text"
 
 
-# --------------------------------------------------------------------------- #
 # Serving
-# --------------------------------------------------------------------------- #
 
 
 def test_the_dashboard_is_served_at_the_root(client: TestClient) -> None:

@@ -1,24 +1,15 @@
 """Chunking, embedding and retrieval (BUILD_SPEC.md section 4).
 
-Chunks run ~400-600 tokens with ~15% overlap, and **never cross a locator
-boundary**. A chunk that spans two PDF pages has an ambiguous anchor, and an
-ambiguous anchor is an uncheckable citation. This is the rule that keeps
-citations honest, and :mod:`updater.retrieve.chunk` calls
-:func:`updater.provenance.require_derives_within` on every chunk it emits.
-
-Tokens are counted in the embedding model's own word pieces, because the only
-budget that can actually be violated is that model's input window.
-
-Embeddings are local (``sentence-transformers``, ``all-MiniLM-L6-v2``) and live
-in SQLite with ``sqlite-vec``. No separate vector database service. The model's
-window is 256 word pieces — smaller than a chunk — so a chunk is embedded as
-overlapping windows and scored by its best one, rather than being truncated to
-its first 40% without anybody being told.
-
-Retrieval is hybrid: full-text BM25 (SQLite FTS5, in the same file) and dense,
-fused by reciprocal rank. Statistics and proper nouns — exactly what this
-project is made of — are what dense retrieval misses.
-:class:`~updater.retrieve.search.Retriever` is the seam.
+- ``chunk``: ~400-600-token chunks with ~15% overlap that **never cross a
+  locator boundary**, since an ambiguous anchor is an uncheckable citation.
+  Tokens are word pieces of the embedding model's tokenizer (``tokenize``).
+- ``embed``: local ``all-MiniLM-L6-v2``. Its window is smaller than a chunk, so
+  a chunk is embedded as overlapping windows, never truncated.
+- ``store``: chunks, anchors, vectors (``sqlite-vec``) and a full-text index
+  (FTS5) in one SQLite file.
+- ``search``: dense, full-text BM25, or both fused by reciprocal rank;
+  :class:`~updater.retrieve.search.Retriever` is the seam.
+- ``index``: extract, chunk, embed and store each registered source.
 
 Usage::
 

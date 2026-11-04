@@ -1,16 +1,9 @@
 """Evidence extraction and quote verification, with a scripted model.
 
-BACKEND_PLAN.md phase 5 lists the tests this stage owes, all runnable with no
-API key: a fabricated quote is discarded, a one-digit near miss is discarded,
-the displayed passage equals the document's characters, a missing statistic
-stays null, and an offset test whose passage has a non-zero ``char_start``.
-They are the first five below. The rest pin what the model may not author and
-the two outcomes that must never become an empty result.
-
 Like the chunking tests, these assert absence as well as presence: a discarded
-finding must be *gone from the evidence and present in the count*, because a
-discard that only disappears is a silent loss, and one that only gets counted
-is a fabricated quote in the draft.
+finding must be *gone from the evidence and present in the count*. A discard
+that only disappears is a silent loss; one that is only counted is a fabricated
+quote in the draft.
 """
 
 from __future__ import annotations
@@ -62,9 +55,7 @@ def only_discard(result: ExtractionResult) -> DiscardReason:
     return result.discarded[0].reason
 
 
-# --------------------------------------------------------------------------- #
-# The five phase 5 asks
-# --------------------------------------------------------------------------- #
+# The five tests BACKEND_PLAN.md phase 5 asks for
 
 
 def test_a_fabricated_quote_is_discarded_and_counted(
@@ -154,9 +145,7 @@ def test_offsets_index_the_locator_unit_not_the_passage() -> None:
     assert derives_within(chunk.anchor, anchor)
 
 
-# --------------------------------------------------------------------------- #
 # What a verified finding carries
-# --------------------------------------------------------------------------- #
 
 
 def test_a_verbatim_quote_becomes_evidence_anchored_at_its_span() -> None:
@@ -222,9 +211,7 @@ def test_a_repeated_quote_is_anchored_at_its_first_occurrence() -> None:
     assert found.quote == "68% in 2024"
 
 
-# --------------------------------------------------------------------------- #
 # What the model may not author
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(
@@ -272,7 +259,7 @@ def test_a_passage_id_that_was_not_supplied_is_discarded() -> None:
 
 @pytest.mark.parametrize("extra", ["page", "source", "citation"])
 def test_a_finding_that_authors_a_citation_is_discarded(extra: str) -> None:
-    """Phase 5: the model never authors a source, a citation or a page."""
+    """The model never authors a source, a citation or a page."""
     result = extract(
         [make_passage(DESTINATIONS)], finding(quote="68%", **{extra: "p. 7"})
     )
@@ -319,9 +306,7 @@ def test_a_finding_missing_a_field_is_discarded() -> None:
     assert only_discard(result) is DiscardReason.MALFORMED
 
 
-# --------------------------------------------------------------------------- #
 # Never an empty result by accident
-# --------------------------------------------------------------------------- #
 
 
 def test_no_passages_means_no_model_call() -> None:
@@ -367,9 +352,7 @@ def test_an_empty_quote_verifies_against_nothing() -> None:
     assert locate_quote(" \n ", DESTINATIONS) is None
 
 
-# --------------------------------------------------------------------------- #
 # The request
-# --------------------------------------------------------------------------- #
 
 
 def test_the_prompt_holds_the_claim_and_only_the_supplied_passages() -> None:
@@ -437,8 +420,7 @@ def test_the_schema_uses_only_keywords_gemini_supports() -> None:
 
 
 def test_importing_extraction_loads_no_provider_sdk() -> None:
-    """Verification imports no provider (phase 5), and neither does the package:
-    each SDK is loaded only when its provider is chosen."""
+    """Each provider SDK is loaded only when its provider is chosen."""
     code = (
         "import sys, updater.extract.verify, updater.extract.evidence\n"
         "loaded = [m for m in ('anthropic', 'google.genai') if m in sys.modules]\n"

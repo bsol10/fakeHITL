@@ -1,31 +1,16 @@
 """The command line: ``updater ingest``, ``search``, ``extract`` and ``serve``.
 
-Four commands, all of them thin. Everything they do lives in
-:mod:`updater.registry`, :mod:`updater.ingest` and :mod:`updater.retrieve`; the
-CLI's own job is to turn arguments into those calls and print the result in a
-form somebody can check.
+Each command is thin: it turns arguments into calls on the rest of the package
+and prints the result in a form somebody can check.
 
-``ingest`` refuses a file that is not in the approved-source registry. That is
-design rule 3, and it is enforced here rather than trusted to the operator,
-because "just index this one file" is exactly the convenience that would put
-unapproved material into a draft.
-
-``search`` prints an anchor for every hit. It exists to answer, before any LLM
-is involved, the question the whole project turns on: *when you ask this corpus
-something, does what comes back point at a real place in a real document?*
-
-``extract`` runs one claim through retrieval and evidence extraction and prints
-every verified quote beside its citation, and how many findings were discarded.
-It is BACKEND_PLAN.md phase 5's check made runnable: read each quote against
-the source yourself. The model comes from ``.env`` (``UPDATER_MODEL_PROVIDER``
-and that provider's key and model id), and a missing one stops the command
-before anything is retrieved.
-
-``serve`` runs the HTTP API the dashboard talks to, and serves the dashboard
-itself (``front-end/``) at ``/`` from the same origin. It needs the ``api`` extra,
-imported only when the command runs, so ``ingest`` and ``search`` work without
-it. It keeps its state (decisions, reviews, the audit log) in the same database
-file as the index, so the three commands share one ``--db``.
+``ingest`` refuses a file that is not in the approved-source registry (design
+rule 3) rather than trusting the operator to "just index this one file".
+``search`` prints an anchor for every hit. ``extract`` prints every verified
+quote beside its citation, and the discard count, so each quote can be read
+against its source (BACKEND_PLAN.md phase 5); the model comes from ``.env``.
+``serve`` runs the API and serves the dashboard from the same origin, keeping
+its state in the same database file as the index, so all four commands share
+one ``--db``. It needs the ``api`` extra, imported only when it runs.
 """
 
 from __future__ import annotations
@@ -78,10 +63,9 @@ below the repository root. An installed wheel has no such directory, and then
 def _configure_console() -> None:
     """Force UTF-8 on the console.
 
-    The Windows console defaults to cp1252, which turns every curly quote and em
-    dash in a real ASIL document into a replacement character. Since the point of
-    printing a passage is reading it, mojibake here would waste a debugging
-    session on a question that is not about the extractor at all.
+    The Windows console defaults to cp1252, which mangles the curly quotes and
+    dashes in real documents, and mojibake in a printed passage could be the
+    extractor's fault or the terminal's.
     """
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -250,8 +234,7 @@ def _ingest(args: argparse.Namespace) -> int:
         try:
             only = {registry.source_for_path(path).id for path in args.paths}
         except SourceNotRegistered as error:
-            # Rule 3. Not an inconvenience to route around: the fix is a human
-            # adding the document to the registry.
+            # Rule 3: the fix is a person adding the document to the registry.
             print(f"refusing to ingest: {error}", file=sys.stderr)
             return 2
 
@@ -417,11 +400,8 @@ def _retriever(store: PassageStore, kind: str) -> Retriever:
 
 
 def _how_found(result: RetrievalResult) -> str:
-    """Which retriever ranked this where: the answer to "why did it come back?".
-
-    A dash means that retriever did not return the chunk at all, which for a
-    figure is the interesting case — it is dense's usual answer.
-    """
+    """Which retriever ranked this where. A dash means that retriever did not
+    return the chunk at all, which is dense's usual answer for a figure."""
     dense = (
         "-"
         if result.dense_rank is None

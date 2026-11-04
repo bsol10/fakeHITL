@@ -1,7 +1,7 @@
 """Ingest real files and print every passage with its full anchor.
 
 A developer inspector, not a pipeline stage. Drop documents in ``data/sources/``
-(gitignored — the repo holds no client material) and run::
+(gitignored: the repo holds no client material) and run::
 
     uv run python scripts/dump_passages.py data/sources
 
@@ -9,28 +9,20 @@ For one file, with nothing truncated::
 
     uv run python scripts/dump_passages.py data/sources/report.pdf --limit 0 --chars 0
 
-What it is for: seeing, on real ASIL documents rather than generated fixtures,
-that the locator is right, that the offsets slice back to the text they claim,
-and that the extracted text is readable. Those are the three things
-BUILD_SPEC.md section 3 says go wrong silently.
+It shows, on real documents, the three things BUILD_SPEC.md section 3 says go
+wrong silently: whether the locator is right, whether the offsets slice back to
+the text they claim, and whether the extracted text is readable.
 
-``--chunk`` runs the chunking stage too, and prints chunks rather than
-passages. At ingest a passage *is* its locator unit, so everything reads
-"whole unit"; the first thing that legitimately reads ``PARTIAL`` is a chunk.
-That makes this the cheapest place to notice chunking writing anchors it should
-not.
+``--chunk`` prints chunks rather than passages. A passage is its whole locator
+unit, so the first thing that legitimately reads ``PARTIAL`` is a chunk.
 
-``--worst N`` sorts by alphanumeric ratio and shows the N lowest. That ratio
-started life as an OCR-garbage check and has become the best smoke alarm in the
-codebase for the wrong-label failure class: wrong column labels are less
-prose-like than right ones, so a header bug sinks its passages to the bottom of
-this list. It is the first thing to run against newly supplied material.
+``--worst N`` shows the N lowest by alphanumeric ratio. Wrong column labels are
+less prose-like than right ones, so a header bug sinks its passages to the
+bottom of this list. Run it first against newly supplied material.
 
-*This script fabricates a* :class:`~updater.models.Source` *from the file
-itself* — id and title from the stem, media type from sniffing. **The registry
-now exists** (``registry.yaml``), and the pipeline takes its ``Source`` from
-there; this remains the one sanctioned exception, because it exists precisely to
-look at a document *before* anybody has approved it. Nothing it prints becomes
+The script fabricates a :class:`~updater.models.Source` from the file itself,
+because it exists to look at a document *before* anybody has approved it. That
+makes it the one sanctioned exception to the registry: nothing it prints becomes
 evidence. Do not import :func:`provisional_source` from anything that retrieves,
 extracts evidence, or drafts.
 """
@@ -44,11 +36,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-# Real documents are full of curly quotes, em dashes and non-breaking spaces,
-# and the Windows console defaults to cp1252, which turns every one of them into
-# a replacement character. Since the whole point of this script is reading the
-# extracted text, force UTF-8 rather than looking at mojibake and wondering
-# whether the extractor or the terminal produced it.
+# The Windows console defaults to cp1252 and would turn every curly quote and
+# dash in the extracted text into a replacement character, hiding whether the
+# extractor or the terminal produced it.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 
@@ -73,10 +63,8 @@ THIN = "-" * 78
 def provisional_source(path: Path) -> Source:
     """A throwaway registry entry so ingest has something to anchor against.
 
-    See the module docstring: this is not the registry. The fields it cannot
-    know say so rather than being guessed — ``owner`` and ``topic`` are the two
-    a real entry must carry, so they read as unknown instead of looking as
-    though somebody filled them in.
+    Not the registry (see the module docstring). ``owner`` and ``topic`` read
+    as unknown rather than being guessed, so they do not look filled in.
     """
     return Source(
         id=path.stem,
@@ -101,14 +89,13 @@ def dump_passage(
 ) -> None:
     anchor = passage.anchor
     # Offsets are relative to the locator unit, so a chunk's anchor indexes into
-    # its *parent's* text, not its own. Rebasing by char_start is what lets the
-    # same slice check work for a whole passage and for a chunk of one.
+    # its parent's text. Rebasing by char_start makes one slice check work for
+    # both a whole passage and a chunk of one.
     span = passage.text[: anchor.char_end - anchor.char_start]
 
-    # "Whole unit" needs the *unit's* length, which a chunk does not carry —
-    # the caller looks it up from the parent passage. Judging by char_start == 0
-    # alone would call the first chunk of a split page whole, which is exactly
-    # the misreading this line exists to prevent.
+    # "Whole unit" needs the unit's length, which a chunk does not carry, so the
+    # caller passes it. char_start == 0 alone would call the first chunk of a
+    # split page whole.
     covered = anchor.char_end - anchor.char_start
     unit = unit_chars if unit_chars is not None else covered
     coverage = (
@@ -145,9 +132,8 @@ def chunked(passages: list[Passage]) -> list[Passage]:
     """Run the chunking stage, or explain why it could not run.
 
     Chunking needs the embedding model's tokenizer, because the budget is
-    measured in the units of the window it has to fit. Without it the script
-    still dumps passages rather than silently chunking to some other budget and
-    producing an index nothing else would reproduce.
+    counted in that model's units. Without it nothing is chunked, rather than
+    chunked to some other budget that nothing else would reproduce.
     """
     try:
         counter = default_token_counter()
@@ -213,18 +199,12 @@ def dump_file(path: Path, *, limit: int, chars: int, chunk: bool, worst: int) ->
             f"{DEFAULT_CHUNK_CONFIG.overlap_tokens})"
         )
         if len(chunks) == len(passages):
-            # Worth saying out loud rather than leaving to be inferred from two
-            # equal numbers: on this corpus every locator unit is a paragraph or
-            # a table row, and all of them already fit the budget.
             print("  note         every unit fitted the budget; nothing was split")
-        # A chunk's id is its parent's plus "#n", which is how the unit it
-        # came from is found again to judge coverage.
+        # A chunk's id is its parent's plus "#n".
         unit_chars = {item.id: unit_chars[item.id.rsplit("#", 1)[0]] for item in chunks}
         passages, label, total = chunks, "chunk", len(chunks)
 
     if worst > 0:
-        # The smoke alarm: wrong labels are less prose-like than right ones, so
-        # a header bug sinks its passages to the bottom of this list.
         selected = sorted(passages, key=lambda item: alnum_ratio(item.text))[:worst]
         print(f"  showing      the {len(selected)} lowest by alphanumeric ratio")
         for ordinal, item in enumerate(selected, start=1):

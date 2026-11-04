@@ -11,9 +11,8 @@ Classifies each prior-year claim against this year's evidence:
 ``cannot-verify``
     The default, whenever retrieval came back thin.
 
-Every status carries a written rationale — including ``unchanged``. This is the
-feature ASIL actually wants, so the rationale is the deliverable as much as the
-label is.
+Every status carries a written rationale, ``unchanged`` included: the rationale
+is as much the deliverable as the label.
 """
 
 from __future__ import annotations

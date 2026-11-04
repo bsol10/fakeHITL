@@ -1,15 +1,9 @@
 """Restarting the server loses nothing anybody did.
 
-BACKEND_PLAN.md phase 1's check, as a test: restart mid-review and confirm the
-decisions and the audit log survive. Everything else a person or a run creates
-is checked the same way: reviews and notes, sign-off, settings, source changes,
-run progress and run numbering. ``test_api.py`` and ``test_api_policies.py``
-already pin the responses themselves, unchanged from phase 0; these tests pin
-that the responses are the same on either side of a restart.
-
-Also here: a change and its audit entry are saved together or not at all, and
-registry actions are audited (who approved what is a rule 3 question) without
-appearing in a report's review trail.
+``test_api.py`` and ``test_api_policies.py`` pin the responses themselves; these
+tests pin that they are the same on either side of a restart. Also here: a
+change and its audit entry are saved together or not at all, and registry
+actions are audited without appearing in a report's review trail.
 """
 
 from __future__ import annotations
@@ -182,7 +176,7 @@ def test_source_changes_survive_a_restart(db: Path) -> None:
         assert refused.status_code == 409
 
 
-# --- registry actions are audited ------------------------------------------
+# Registry actions are audited
 
 
 def registry_log(db: Path) -> list[tuple[str, str, str, str | None]]:
@@ -238,7 +232,7 @@ def test_every_permitted_status_change_has_an_audit_action() -> None:
     assert set(SOURCE_ACTION) == SOURCE_TRANSITIONS
 
 
-# --- a change and its audit entry are one unit of work ---------------------
+# A change and its audit entry are one unit of work
 
 
 def test_nothing_is_saved_when_its_audit_entry_cannot_be(
@@ -272,7 +266,7 @@ def test_nothing_is_saved_when_its_audit_entry_cannot_be(
     assert registry_log(db) == []
 
 
-# --- an incompatible database is refused -----------------------------------
+# An incompatible database is refused
 
 
 def test_state_about_other_claims_is_refused_at_startup(db: Path) -> None:
@@ -282,7 +276,7 @@ def test_state_about_other_claims_is_refused_at_startup(db: Path) -> None:
         MockState(path=db)
 
 
-# --- updater serve ---------------------------------------------------------
+# updater serve
 
 
 def test_serve_keeps_state_in_the_configured_database(

@@ -1,27 +1,20 @@
-"""Core data model for the ASIL annual research update agent.
+"""Core data model (BUILD_SPEC.md section 2). Everything downstream depends on it.
 
-Defined before any pipeline code, per BUILD_SPEC.md section 2. Everything
-downstream depends on these types.
+Two design rules are encoded in the types rather than left to convention:
 
-Two of the five non-negotiable design rules are encoded in the types themselves
-rather than left to convention:
+*Rule 1, provenance is never lost.* :class:`Passage` and :class:`Evidence`
+cannot be constructed without a :class:`SourceAnchor`, so text never becomes a
+bare ``str``.
 
-*Rule 1 — provenance is never lost.* :class:`Passage` and :class:`Evidence`
-cannot be constructed without a :class:`SourceAnchor`. There is no stage of the
-pipeline at which text is allowed to become a bare ``str``.
+*Rule 2, abstention over confabulation.* Optional fields on :class:`Evidence`
+default to ``None``, so returning nothing is the cheapest thing an extractor can
+do. A model that must emit a number will invent one.
 
-*Rule 2 — abstention over confabulation.* Every optional field on
-:class:`Evidence` defaults to ``None``, so returning nothing is the cheapest
-thing an extractor can do. A model that must emit a number will invent one;
-making null the easy path is what stops that.
+Provenance records are frozen: an anchor that can be edited after the fact is
+not provenance. :class:`Source` is the one mutable type.
 
-Provenance records are frozen — an anchor that could be edited after the fact is
-not provenance. :class:`Source` is the one mutable type, because the fetch stage
-writes ``last_checked`` and ``last_content_hash`` back to the registry entry.
-
-Records use keyword-only fields. That costs a few characters at each call site
-and buys immunity from the silent failure where ``char_start`` and ``char_end``
-are passed the wrong way round.
+Records are keyword-only, so ``char_start`` and ``char_end`` cannot be passed the
+wrong way round.
 """
 
 from __future__ import annotations
@@ -51,18 +44,13 @@ __all__ = [
 ]
 
 
-# --------------------------------------------------------------------------- #
-# Enumerations
-# --------------------------------------------------------------------------- #
-
-
 class MediaType(StrEnum):
     """Canonical IANA media types for the formats in BUILD_SPEC.md section 3.
 
-    Fields are typed ``str`` rather than ``MediaType`` on purpose: members of a
-    ``StrEnum`` *are* strings, so these constants can be used anywhere a media
-    type is expected, while a sniffed type that is not listed here still round
-    trips instead of raising. Sniffing is authoritative, not this list.
+    Fields elsewhere are typed ``str``, not ``MediaType``: members of a
+    ``StrEnum`` are strings, so these work anywhere a media type is expected,
+    and a sniffed type not listed here still round trips. Sniffing is
+    authoritative, not this list.
     """
 
     PDF = "application/pdf"
@@ -80,13 +68,10 @@ class MediaType(StrEnum):
 class UpdateFrequency(StrEnum):
     """How often a source is expected to be revised.
 
-    Drives which sources are worth re-fetching in a given run. ``UNKNOWN`` is
-    the honest default for a source whose publisher has no stated cadence.
-
-    There is no "biannual". It means twice a year to some readers and every two
-    years to others, and the dashboard prototype uses both cadences, as
-    "Half-yearly" and "Biennial". Each of the prototype's four labels names one
-    member here by meaning; monthly, irregular and unknown have no label there.
+    ``UNKNOWN`` is the honest default when the publisher states no cadence.
+    There is deliberately no "biannual": it reads as both twice a year and every
+    two years. Each of the dashboard's four labels (Annual, Biennial,
+    Half-yearly, Quarterly) maps to one member by meaning.
     """
 
     ANNUAL = "annual"
@@ -114,14 +99,9 @@ class ComparisonStatus(StrEnum):
     CANNOT_VERIFY = "cannot-verify"
 
 
-# --------------------------------------------------------------------------- #
-# Locators — the format-specific half of a citation (BUILD_SPEC.md section 3)
-# --------------------------------------------------------------------------- #
-#
-# A discriminated union: each variant carries a literal ``kind`` tag so it
-# survives a round trip through YAML, JSON or SQLite, where isinstance checks
-# are not available. Adding a format means adding one variant here and one
-# adapter in ``updater.ingest`` — nothing else in the pipeline changes.
+# Locators: the format-specific half of a citation (BUILD_SPEC.md section 3).
+# Each variant carries a literal ``kind`` tag so it survives a round trip through
+# YAML, JSON or SQLite, where isinstance is not available.
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,10 +127,12 @@ class BlockLocator:
 
 @dataclass(frozen=True, slots=True)
 class CellLocator:
-    """A rectangular range within one sheet. XLSX and CSV.
+    """A rectangular range within one grid. XLSX, CSV and DOCX tables.
 
-    ``cell_range`` is A1 notation ("B4:B12"). CSV has a single implicit sheet;
-    use the file stem as ``sheet`` so the rendered citation still reads.
+    ``cell_range`` is A1 notation ("B4:B12"). ``sheet`` names the grid: the
+    worksheet, the CSV's file stem, or a DOCX table's ``Table 3 (para 194)``. It
+    is read by people, never parsed; if it ever needs parsing, split the variant
+    (see DESIGN.md decisions log).
     """
 
     sheet: str
@@ -171,10 +153,9 @@ class SlideLocator:
 class DomLocator:
     """A node in an HTML document.
 
-    ``heading_trail`` is the chain of enclosing headings, outermost first, which
-    is what makes a web citation legible to a reviewer once the page has been
-    restructured and the CSS path no longer resolves. It is a tuple rather than
-    a list so anchors stay hashable.
+    ``heading_trail`` is the chain of enclosing headings, outermost first. It
+    keeps a web citation legible once the page is restructured and the CSS path
+    no longer resolves. A tuple, not a list, so anchors stay hashable.
     """
 
     css_path: str
@@ -197,19 +178,12 @@ Locator: TypeAlias = (
 """Every way this system can point at a location inside a source."""
 
 
-# --------------------------------------------------------------------------- #
-# Records
-# --------------------------------------------------------------------------- #
-
-
 @dataclass(slots=True, kw_only=True)
 class Source:
-    """A registry entry: one approved source, and what we know about it.
+    """A registry entry: one approved source (design rule 3).
 
-    Design rule 3 — if it isn't in the registry, it isn't evidence.
-
-    Mutable, unlike everything else in this module: the fetch stage updates
-    ``last_checked`` and ``last_content_hash`` in place after each run.
+    Mutable, unlike every other record here: the fetch stage updates
+    ``last_checked`` and ``last_content_hash`` in place.
     """
 
     id: str
@@ -234,13 +208,10 @@ class SourceAnchor:
     """The citation primitive: which source, and where inside it.
 
     ``char_start`` and ``char_end`` are offsets into the extracted text of the
-    unit named by ``locator`` — the page, the paragraph, the cell range. Keeping
-    them locator-relative rather than document-relative is what lets the
-    extract stage verify a quoted span by plain string match, and what keeps the
-    anchor valid when unrelated parts of the document shift.
-
-    Frozen. Once minted, an anchor travels unchanged through chunking,
-    retrieval, extraction and drafting.
+    unit ``locator`` names (the page, the paragraph, the cell range), not into
+    the whole document. That lets the extract stage verify a quoted span by
+    plain string match, and keeps the anchor valid when unrelated parts of the
+    document shift.
     """
 
     source_id: str
@@ -263,8 +234,7 @@ class Passage:
     """A span of extracted text that knows where it came from.
 
     The unit that moves through the pipeline. Chunking splits passages within
-    locator boundaries and never across them, so a chunk cannot straddle two
-    PDF pages and leave its anchor ambiguous (BUILD_SPEC.md section 4).
+    locator boundaries, never across them (BUILD_SPEC.md section 4).
     """
 
     id: str
@@ -279,14 +249,12 @@ class Evidence:
     """One structured finding, extracted from retrieved passages.
 
     Every field except ``finding``, ``anchor`` and ``confidence`` defaults to
-    ``None``. That is design rule 2 expressed in the constructor: an extractor
-    that found no statistic omits the argument, and omitting it is less work
-    than inventing one.
+    ``None`` (design rule 2): an extractor that found no statistic omits the
+    argument, which is less work than inventing one.
 
     There is no ``quote`` field. The supporting span is
-    ``passage.text[anchor.char_start:anchor.char_end]`` — deriving it rather
-    than storing it means the quote cannot drift out of sync with the anchor
-    that is supposed to justify it.
+    ``passage.text[anchor.char_start:anchor.char_end]``, derived so it cannot
+    drift out of sync with the anchor that justifies it.
     """
 
     finding: str
@@ -306,9 +274,8 @@ class Evidence:
 class Claim:
     """A unit of the prior-year report, and where it was said.
 
-    ``prior_anchor`` points into last year's report, not into this year's
-    sources. It is what makes the comparison auditable: a reviewer can read the
-    old sentence next to the new evidence.
+    ``prior_anchor`` points into last year's report, not this year's sources,
+    so a reviewer can read the old sentence next to the new evidence.
     """
 
     id: str

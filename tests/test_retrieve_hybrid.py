@@ -1,16 +1,13 @@
 """Hybrid retrieval: full-text search and dense, fused by reciprocal rank.
 
-BACKEND_PLAN.md phase 2. The test this phase exists for is the first one: on
-ASIL's real index, the query ``109,860`` put an unrelated table header first,
-because the row stating that figure is dense rank 52 and fusion only reads each
-retriever's top 50. The two rank-1 results then tie at exactly 1/61, and only
-the tie-break decides which a reviewer sees first. The test reproduces that
-shape rather than the real file, so it runs in every checkout.
+The first test reproduces the shape found on ASIL's real index: the row stating
+``109,860`` ranks outside dense retrieval's top 50, which is as far as fusion
+reads. It and an unrelated header each rank first in one list and tie at
+exactly 1/61, so only the tie-break decides which a reviewer sees first.
 
-Dense rankings here are scripted, not hashed: :class:`ScriptedEmbedder` places
-each text at a chosen similarity to the query. A test about fusing two rankings
-has to control both of them, and the stub embedder's hash geometry would make
-the dense half an accident.
+Dense rankings here are scripted, not hashed: a test about fusing two rankings
+has to control both, and the stub embedder's hash geometry would make the dense
+half an accident.
 """
 
 from __future__ import annotations
@@ -87,9 +84,7 @@ def filler(count: int) -> list[str]:
     return [f"Provider {n}. Completions 2024: {1000 + n}" for n in range(count)]
 
 
-# --------------------------------------------------------------------------- #
 # The figure dense retrieval cannot find
-# --------------------------------------------------------------------------- #
 
 
 def test_a_figure_dense_ranks_outside_its_top_50_comes_first(tmp_path: Path) -> None:
@@ -138,16 +133,13 @@ def test_fusion_reads_each_retrievers_top_50_not_top_k(tmp_path: Path) -> None:
     assert (best[0].dense_rank, best[0].sparse_rank) == (2, 2)
 
 
-# --------------------------------------------------------------------------- #
 # Prose is not regressed
-# --------------------------------------------------------------------------- #
 
 
 def test_an_answer_only_dense_can_find_is_still_returned(tmp_path: Path) -> None:
-    """The other half of the bargain. A paraphrase shares no word with the
-    passage that answers it, so full-text search cannot help, and the words it
-    does share pull other rows up. Fusion may move the answer down the list; it
-    must not lose it from the five a reviewer reads."""
+    """A paraphrase shares no word with the passage that answers it, and the
+    words it does share pull other rows up. Fusion may move the answer down the
+    list; it must not lose it from the five a reviewer reads."""
     query = "which jobs are most likely to be replaced by machines"
     answer = "Higher automation risk industries (9 industries)"
     store, hybrid, _ = indexed_in_dense_order(
@@ -186,9 +178,7 @@ def test_an_empty_query_retrieves_nothing(tmp_path: Path) -> None:
         assert hybrid.retrieve("   ") == []
 
 
-# --------------------------------------------------------------------------- #
 # The fusion arithmetic
-# --------------------------------------------------------------------------- #
 
 
 def ranked(*ids: str) -> list[RetrievalResult]:

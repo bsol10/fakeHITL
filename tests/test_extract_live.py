@@ -5,16 +5,12 @@ Marked ``live`` and deselected by ``addopts``; run them with::
     uv run pytest -m live
 
 Every test runs once per provider. A provider whose key is not set (in the
-environment or in ``.env``) is skipped; a provider whose key *is* set but whose
-model id is not fails, with the message saying what to set, because that is a
-configuration mistake rather than a missing provider. ``.env`` is read without
-being loaded into the process environment, so collecting this module changes
-nothing for the rest of the suite.
+environment or in ``.env``) is skipped; one whose key *is* set but whose model
+id is not fails, because that is a configuration mistake rather than a missing
+provider. ``.env`` is read without being loaded into the process environment,
+so collecting this module changes nothing for the rest of the suite.
 
-These are the tests that say whether a provider can be trusted with the
-pipeline, and the decisions log (2026-10-08) makes Gemini the default only
-once its run of them passes. The property that matters most is the second:
-passages that state no figure must come back with ``statistic`` null.
+Gemini does not become the default provider until its run of these passes.
 """
 
 from __future__ import annotations

@@ -1,8 +1,4 @@
-"""Dispatch tests (BUILD_SPEC.md section 3).
-
-The spec's own justification for content sniffing is that "ASIL staff will
-upload a .txt that is actually a PDF", so that is the first test here.
-"""
+"""Dispatch by content sniffing (BUILD_SPEC.md section 3)."""
 
 from __future__ import annotations
 
@@ -29,7 +25,8 @@ from updater.models import MediaType
 
 
 def test_a_pdf_named_txt_is_still_a_pdf(tmp_path: Path) -> None:
-    """The motivating case from the spec, end to end."""
+    """The spec's motivating case: "ASIL staff will upload a .txt that is
+    actually a PDF"."""
     path = write_pdf(tmp_path / "notes.txt", [PAGE_ONE])
 
     assert sniff_media_type(path) == MediaType.PDF

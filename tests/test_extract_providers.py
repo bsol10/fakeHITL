@@ -49,9 +49,7 @@ GEMINI_ENV = {
 }
 
 
-# --------------------------------------------------------------------------- #
 # Choosing a provider
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize("setting", [None, "", "  ", "anthropic", "ANTHROPIC"])
@@ -89,9 +87,7 @@ def test_choosing_gemini_without_its_sdk_says_how_to_install_it(
         model_from_env(GEMINI_ENV)
 
 
-# --------------------------------------------------------------------------- #
 # Claude
-# --------------------------------------------------------------------------- #
 
 
 @dataclass
@@ -214,9 +210,7 @@ def test_a_claude_reply_with_no_text_is_model_call_failed() -> None:
         model.complete(system=SYSTEM, prompt=PROMPT, schema=SCHEMA)
 
 
-# --------------------------------------------------------------------------- #
 # Gemini
-# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture

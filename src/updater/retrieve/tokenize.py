@@ -1,29 +1,10 @@
-"""Token counting, in the embedding model's own units.
+"""Token counting, in the embedding model's own word pieces.
 
-The chunking stage is the first stage with a budget, so per DESIGN.md it is the
-stage that owns real token counting and replaces the four-characters-per-token
-estimate ingest uses to sort by.
-
-**The unit is a word piece of the embedding model's tokenizer, not a
-general-purpose "token".** That is a deliberate choice: the only budget that can
-actually be violated is the embedding model's input window, so the budget is
-measured in the units that window is expressed in. Counting in some other
-tokenizer's units would produce a number that is nobody's constraint.
-
-Two measurements from the real corpus, both arguing for counting rather than
-estimating:
-
-* prose runs about 4.3 characters per word piece — close to ingest's estimate;
-* a serialised table row runs about 3.5, because digits and punctuation
-  fragment. Tabular sources are most of ASIL's material, so the estimate is
-  optimistic by roughly 20% exactly where the corpus is densest.
-
-One trap, found the hard way and worth stating because it is invisible: the
-``tokenizer.json`` published with all-MiniLM-L6-v2 carries **truncation and
-padding at 128 tokens**. Sentence-transformers overrides both at load time, but
-a bare ``tokenizers.Tokenizer`` does not — so counting with it untouched silently
-reports 128 for every long passage, and every chunk would come out at the wrong
-size with nothing to show for it. :func:`load_tokenizer` disables both.
+Chunking is the first stage with a budget, so it owns real counting; ingest's
+four-characters-per-token estimate is optimistic on table rows, where digits
+and punctuation fragment. The unit is a word piece of the embedding model's
+tokenizer because the only budget that can be violated is that model's input
+window.
 """
 
 from __future__ import annotations
@@ -53,14 +34,8 @@ EMBEDDING_MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
 """The model BUILD_SPEC.md section 4 names for embedding."""
 
 MODEL_WINDOW_TOKENS = 256
-"""``max_seq_length`` of the embedding model, in word pieces.
-
-Text beyond this is **silently truncated** by sentence-transformers — no
-warning, no error, just a vector computed from a prefix. That is the
-silent-loss failure this project keeps ruling out, so nothing here relies on the
-model to handle overlong input; see :mod:`updater.retrieve.embed`, which windows
-instead.
-"""
+"""``max_seq_length`` of the embedding model, in word pieces. sentence-transformers
+silently truncates beyond it, so :mod:`updater.retrieve.embed` windows instead."""
 
 SPECIAL_TOKEN_ALLOWANCE = 2
 """``[CLS]`` and ``[SEP]``, which the model spends from the same 256."""
@@ -72,19 +47,15 @@ USABLE_WINDOW_TOKENS = MODEL_WINDOW_TOKENS - SPECIAL_TOKEN_ALLOWANCE
 class TokenizerUnavailable(RuntimeError):
     """The embedding model's tokenizer could not be loaded.
 
-    Chunk boundaries depend on the counter, so falling back to an estimate would
-    quietly produce a different index from the one every other environment
-    builds. Better to stop.
+    There is no fallback to an estimate: chunk boundaries depend on the counter,
+    so it would quietly build a different index from every other environment's.
     """
 
 
 class TokenCounter(Protocol):
     """Anything that can say how long a piece of text is, in tokens.
 
-    A protocol rather than a concrete class so the chunking tests can inject a
-    deterministic counter and assert boundary behaviour without loading a model
-    — and so a future evaluation can measure chunk sizes in a second tokenizer's
-    units without touching the chunker.
+    A protocol so tests can inject a deterministic counter without a model.
     """
 
     def count(self, text: str) -> int: ...
@@ -94,9 +65,8 @@ class TokenCounter(Protocol):
 def load_tokenizer() -> Tokenizer:
     """The embedding model's tokenizer, with padding and truncation disabled.
 
-    Uses ``tokenizers`` directly rather than ``sentence_transformers``: chunking
-    needs to count, not to embed, and the light path avoids importing torch for
-    a stage that has no use for it.
+    Uses ``tokenizers`` directly rather than ``sentence_transformers``, so
+    counting does not import torch.
     """
     ensure_system_certs()
     try:
@@ -118,8 +88,9 @@ def load_tokenizer() -> Tokenizer:
             f"TLS-intercepting proxy see updater.certs."
         ) from error
 
-    # See the module docstring: the published tokenizer.json truncates and pads
-    # at 128, which would cap every count at 128 without saying so.
+    # Trap: the tokenizer.json published with the model truncates and pads at
+    # 128 tokens. sentence-transformers overrides both at load; a bare Tokenizer
+    # does not, so without these two lines every long count silently reads 128.
     tokenizer.no_truncation()
     tokenizer.no_padding()
     return tokenizer

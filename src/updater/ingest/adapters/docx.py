@@ -4,30 +4,18 @@ Two kinds of passage, interleaved in document order.
 
 **Body paragraphs** get one passage each, anchored by
 :class:`~updater.models.BlockLocator`. ``paragraph_index`` counts every
-paragraph in the document, including the empty ones this adapter skips. That is
-deliberate: the index has to address the real document so a reviewer opening the
-file lands on the right block. Renumbering to be dense would make the locator
-point at whatever happens to be nearby.
+paragraph, including the empty ones skipped here, so it addresses the real
+document and a reviewer lands on the right block.
 
 **Tables** get one passage per row, anchored by
-:class:`~updater.models.CellLocator`, through the same serialisation the XLSX
-adapter uses — :mod:`updater.ingest.tabular`. A table cell is tabular data, and
-the header-carrying row serialisation is what makes a bare figure interpretable
-once it has been pulled out of the document. A ``BlockLocator`` would throw that
-column meaning away and leave a number with a paragraph number attached.
+:class:`~updater.models.CellLocator` and serialised by
+:mod:`updater.ingest.tabular`, so each figure carries its column header; a
+``BlockLocator`` would lose the column. ``CellLocator.sheet`` holds the table's
+identity (see :func:`table_name`), so a citation reads
+``Table 3 (para 194)!B4``.
 
-``CellLocator.sheet`` carries the table's identity: ``Table 3 (para 194)``. A
-DOCX has no sheets, so the field is being used more loosely than the XLSX
-adapter uses it — see the decisions log. The number in brackets is the index the
-*next* body paragraph will have, so a reviewer scrolls to that paragraph and the
-table is immediately above it. Rendered whole, a citation reads
-``(Table 3 (para 194)!B4)``, which is addressable without opening anything else.
-
-Reading tables was not in the first version of this adapter, and their absence
-was silent: ``document.paragraphs`` is body-level paragraphs only, so 30% of the
-text in ASIL's own reports — the 30% holding the figures — never reached a
-passage at all. Nothing raised. That is precisely the silent loss section 3
-forbids, which is why tables are read here rather than left to a later phase.
+Tables must be walked explicitly: ``document.paragraphs`` excludes text inside
+tables, and skipping them silently loses most of a report's figures.
 """
 
 from __future__ import annotations
@@ -89,8 +77,8 @@ class DocxExtractor:
                 rows = list(_table_rows(DocxTable(element, document)))
                 if not rows:
                     continue
-                # Interleaved, not appended. Where a table sits is part of what
-                # it means: the paragraph above it is what says what it shows.
+                # Interleaved, not appended: the paragraph above a table is what
+                # says what it shows.
                 passages.extend(
                     table_to_passages(
                         Table(
@@ -139,9 +127,8 @@ def table_name(ordinal: int, paragraph_index: int) -> str:
     """The identity a table's citations carry: ``Table 3 (para 194)``.
 
     ``paragraph_index`` is the index the next body paragraph will have, so the
-    table sits immediately *above* the paragraph named. A table before any
-    paragraph is therefore "(para 0)", which is well defined rather than a
-    special case.
+    table sits immediately *above* the paragraph named; a table before any
+    paragraph is "(para 0)".
     """
     return f"Table {ordinal} (para {paragraph_index})"
 
@@ -149,18 +136,13 @@ def table_name(ordinal: int, paragraph_index: int) -> str:
 def _table_rows(table: DocxTable) -> Iterator[TableRow]:
     """A DOCX table as :class:`~updater.ingest.tabular.TableRow` objects.
 
-    Row numbers are 1-based within the table, so a citation reads ``B4`` and a
-    reviewer counts four rows down that table rather than four rows down the
-    page. Empty rows are skipped without renumbering, as everywhere else.
+    Row numbers are 1-based within the table, so ``B4`` means four rows down
+    that table. Empty rows are skipped without renumbering.
 
-    Merged cells need the same asymmetry the XLSX adapter applies, arrived at
-    from the other direction. python-docx repeats one underlying ``<w:tc>``
-    across every grid column a horizontal merge covers, so a banner row spanning
-    a four-column table arrives as four identical strings; keeping only the
-    first occurrence turns it back into the single cell it is. Vertical merges
-    need nothing: python-docx already reports the merged text on each row the
-    merge covers, which is the propagate-down behaviour the XLSX adapter has to
-    build by hand.
+    Merges follow the XLSX rule, down but never across. python-docx repeats one
+    ``<w:tc>`` across every grid column a horizontal merge covers, so only its
+    first occurrence is kept: a banner is one cell, not four. Vertical merges
+    already report their text on every row they cover.
     """
     for number, row in enumerate(table.rows, start=1):
         values: dict[int, str] = {}

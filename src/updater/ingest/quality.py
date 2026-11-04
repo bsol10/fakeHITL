@@ -1,23 +1,19 @@
 """The extraction quality gate (BUILD_SPEC.md section 3).
 
-Three checks, run over every adapter's output before the passages are accepted:
+Three checks over every adapter's output:
 
 * non-empty text,
 * alphanumeric characters at 60% or more of the total (catches OCR garbage),
-* no single whitespace-delimited run over 50 characters (catches the ligature
-  and encoding failures that turn a paragraph into one unbroken smear), with
-  URLs and email addresses exempt because they are long by nature.
+* no whitespace-delimited run over 50 characters (catches ligature and encoding
+  failures that lose a paragraph's spaces), URLs and email addresses exempt.
 
-A failure fails the *whole* extraction rather than dropping the offending
-passage. Dropping it silently is precisely the behaviour BUILD_SPEC.md section 3
-rules out: the missing text would reappear downstream as an absence of evidence,
-which the compare stage reads as a real finding about the world.
+A failure fails the *whole* extraction rather than dropping the passage: a
+dropped passage reappears downstream as an absence of evidence, which the
+compare stage reads as a finding about the world.
 
-One deliberate refinement on the spec. The ratio check is skipped for passages
-under :data:`RATIO_CHECK_MIN_CHARS` characters, because on a short fragment the
-ratio is dominated by a single space or bracket — "p. 12" scores 0.60 while
-being perfectly good text. Length thresholds are named constants because they
-are tuning knobs, not laws; see the note in DESIGN.md about tables.
+The ratio check is skipped below :data:`RATIO_CHECK_MIN_CHARS`, where one space
+or bracket dominates the ratio ("p. 12" scores 0.60). The thresholds are tuning
+knobs; see DESIGN.md decisions log on numeric tables before changing them.
 """
 
 from __future__ import annotations
@@ -75,8 +71,8 @@ class QualityIssue(StrEnum):
 class QualityFailure:
     """One rejected passage, named and diagnosed.
 
-    Kept granular on purpose: "this document is bad" is not actionable, whereas
-    "page 7 is 31% alphanumeric" tells a reviewer to go and look at page 7.
+    Granular on purpose: "page 7 is 31% alphanumeric" tells a reviewer where to
+    look, where "this document is bad" does not.
     """
 
     passage_id: str
@@ -104,19 +100,9 @@ _URL_PREFIXES = ("http://", "https://", "www.", "doi:", "ftp://")
 def is_addressable(token: str) -> bool:
     """Whether a long token is a URL or an email rather than a failure.
 
-    The overlong-token check exists to catch ligature and encoding failures —
-    the ones that smear a whole paragraph into a single unbroken run. A URL is
-    not that. It is long *and structured*, and it is exactly what a
-    bibliography is full of.
-
-    This was found on real ASIL material: a 176-character link to an Australian
-    Senate committee report, in the sources line of
-    ``ASIL_Enterprise_Skills_Report_2026.docx``, failed the whole 161-passage
-    document. Rejecting a research report because it cites its sources properly
-    is the check working against the thing it is meant to protect.
-
-    The fail-the-whole-document policy is unchanged and still right (see
-    DESIGN.md, 2026-08-21). What was wrong was the check, not the consequence.
+    The overlong-token check is for text that has lost its spaces. A URL is
+    long but structured, and a bibliography is full of them; without this
+    exemption a report that cites its sources fails as a whole.
     """
     lowered = token.casefold()
     if lowered.startswith(_URL_PREFIXES):
@@ -127,11 +113,7 @@ def is_addressable(token: str) -> bool:
 
 
 def longest_token(text: str) -> str:
-    """The longest whitespace-delimited run in ``text``, or ``""``.
-
-    URLs and email addresses are skipped rather than measured — they are long
-    by nature, and this check is looking for text that has lost its spaces.
-    """
+    """The longest whitespace-delimited run that is not a URL or email, or ``""``."""
     candidates = [token for token in text.split() if not is_addressable(token)]
     return max(candidates, key=len, default="")
 
@@ -171,10 +153,10 @@ def apply_quality_gate(
     source: Source,
     path: Path,
 ) -> list[Passage]:
-    """Accept an adapter's output, or fail loudly with per-passage reasons.
+    """Accept an adapter's output, or raise :class:`ExtractionFailed`.
 
-    Applied centrally by the registry rather than inside each adapter, so a new
-    adapter cannot forget to run it.
+    Also raises when there are no passages at all. Failures carry per-passage
+    reasons and are logged against the source.
     """
     accepted = list(passages)
 

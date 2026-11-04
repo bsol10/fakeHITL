@@ -1,23 +1,12 @@
 """CSV extraction (BUILD_SPEC.md section 3).
 
-One passage per populated row, anchored by
-:class:`~updater.models.CellLocator`, using the same serialisation as the XLSX
-adapter — see :mod:`updater.ingest.tabular` for why a row becomes what it does.
-Sharing that module is the point: a skills table exported to CSV and the same
-table in a workbook should produce the same passage text, or the retrieval index
-quietly depends on which button somebody pressed when they saved it.
+One passage per populated row, anchored by :class:`~updater.models.CellLocator`
+and serialised by :mod:`updater.ingest.tabular`, as XLSX is, so a table exported
+to CSV produces the same passage text as the workbook. ``sheet`` is the file
+stem, so a citation reads ``sector-skills-2025!B4:F4``.
 
-A CSV has no sheet, so :attr:`~updater.models.CellLocator.sheet` is the file
-stem, as the locator's own docstring specifies. That keeps a rendered citation
-readable — ``(sector-skills-2025!B4:F4)`` — instead of naming a sheet that does
-not exist.
-
-Everything a CSV lacks relative to a workbook is a thing this adapter does not
-have to handle: no merges, no formulas, no number formats. What it does have to
-handle is the delimiter, which is sniffed rather than assumed, because a
-European export is semicolon-separated and reading it with commas produces one
-enormous column that would sail through the quality gate as a single passage per
-row and be useless to retrieve.
+The delimiter is sniffed, not assumed: a European export is semicolon-separated,
+and reading it on commas gives one enormous column per row.
 """
 
 from __future__ import annotations

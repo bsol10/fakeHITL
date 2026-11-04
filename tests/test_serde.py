@@ -1,13 +1,8 @@
 """Locators surviving the trip through JSON and SQLite.
 
-The ``kind`` tag on each locator variant exists for exactly this, because a
-column in a database has no ``isinstance``. What these tests protect is the
-property that makes a citation checkable a year later: a locator read back from
-the index must be the same locator that was written, not a similar one.
-
-The DOM case has a wrinkle worth its own test — a tuple comes back from JSON as
-a list, and a list makes the frozen anchor unhashable, which fails far away from
-here and looks like nothing to do with serialisation.
+A locator read back from the index must be the same locator that was written,
+not a similar one. The ``kind`` tag on each variant is what makes that possible
+in a database column, which has no ``isinstance``.
 """
 
 from __future__ import annotations
@@ -56,8 +51,7 @@ def test_every_locator_variant_round_trips(locator: Locator) -> None:
 
 
 def test_the_parametrised_cases_cover_every_variant() -> None:
-    """So adding a locator variant without a round-trip test fails here rather
-    than in a year's time, in a draft, as a citation nobody can resolve."""
+    """So adding a locator variant without a round-trip test fails here."""
     covered = {locator.kind for locator in EVERY_LOCATOR}
 
     assert covered == LOCATOR_KINDS

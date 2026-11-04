@@ -1,15 +1,13 @@
-"""The API's write side, and the policies the mock already enforces.
+"""The API's write side, and the policies it enforces.
 
-BACKEND_PLAN.md phase 0: the frontend is built against the refusals it will
-meet, so they exist before anything real does. In order: a proposed source
-starts pending; a decision never puts an unverified claim in the draft; every
-review is audited; sign-off follows the prototype's rule exactly (every draft
-claim has a verdict and at least one is approved or edited; a flagged claim does
-not block, and is left out); the report holds approved and edited claims only;
-the policies in Settings cannot be changed.
+In order: a proposed source starts pending; a decision never puts an unverified
+claim in the draft; every review is audited; sign-off follows the prototype's
+rule exactly (every draft claim has a verdict and at least one is approved or
+edited; a flagged claim does not block, and is left out); the report holds
+approved and edited claims only; the policies in Settings cannot be changed.
 
-With ``test_api.py``, this is phase 1's acceptance test: it must keep passing
-*unchanged* when the state moves to SQLite.
+Like ``test_api.py``, keep this passing *unchanged* when the state behind the
+API changes.
 """
 
 from __future__ import annotations
@@ -75,7 +73,7 @@ def audit(client: TestClient, run_id: str) -> list[dict[str, Any]]:
     return entries
 
 
-# --- 1 Source registry -----------------------------------------------------
+# 1 Source registry
 
 
 def test_a_proposed_source_starts_pending(client: TestClient) -> None:
@@ -166,7 +164,7 @@ def test_patching_an_unknown_source_is_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-# --- 3 Extraction ----------------------------------------------------------
+# 3 Extraction
 
 
 def test_an_unverified_claim_cannot_be_put_in_the_draft(
@@ -238,7 +236,7 @@ def test_a_prior_report_that_is_not_docx_or_pdf_is_refused(
     assert "report.pdf is text/plain" in response.json()["detail"]
 
 
-# --- 4 Draft review --------------------------------------------------------
+# 4 Draft review
 
 
 def test_until_anything_is_included_the_draft_is_every_verifiable_claim(
@@ -335,7 +333,7 @@ def test_the_audit_log_has_no_write_path() -> None:
     assert not [p for p in paths if "audit" in p and p != "/api/runs/{run_id}/audit"]
 
 
-# --- 5 Sign-off ------------------------------------------------------------
+# 5 Sign-off
 
 
 def test_sign_off_is_refused_while_a_claim_has_no_verdict(
@@ -440,7 +438,7 @@ def test_after_sign_off_the_report_is_locked(client: TestClient, run_id: str) ->
     assert decision.status_code == 409
 
 
-# --- exports ---------------------------------------------------------------
+# Exports
 
 
 def test_the_audit_csv_is_always_available(client: TestClient, run_id: str) -> None:
@@ -474,7 +472,7 @@ def test_an_unknown_export_format_is_rejected(client: TestClient, run_id: str) -
     assert client.get(path, params={"format": "xlsx"}).status_code == 422
 
 
-# --- settings --------------------------------------------------------------
+# Settings
 
 
 def test_settings_can_be_changed(client: TestClient) -> None:

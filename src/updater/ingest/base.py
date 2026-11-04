@@ -1,8 +1,8 @@
 """The adapter contract and the dispatch registry (BUILD_SPEC.md section 3).
 
-Adding a format means adding one adapter and one locator variant. Nothing else
-in the pipeline changes — that is the whole point of the design, and the reason
-the registry, not the adapter, owns both sniffing and the quality gate.
+Adding a format means adding one adapter and, if needed, one locator variant.
+The registry, not the adapter, owns sniffing and the quality gate, so a new
+adapter cannot skip either.
 """
 
 from __future__ import annotations
@@ -34,9 +34,8 @@ CHARS_PER_TOKEN = 4
 class Extractor(Protocol):
     """One extractor per media type, every one returning ``list[Passage]``.
 
-    BUILD_SPEC.md spells the attribute ``media_types: set[str]``. It is written
-    as a ``ClassVar`` here because it is genuinely class-level state, and both
-    mypy and ruff are right to insist on saying so. The contract is unchanged.
+    ``media_types`` is a ``ClassVar`` where BUILD_SPEC.md writes ``set[str]``,
+    because it is class-level state. The contract is unchanged.
     """
 
     media_types: ClassVar[set[str]]
@@ -47,10 +46,9 @@ class Extractor(Protocol):
 def estimate_tokens(text: str) -> int:
     """Rough token count at ~4 characters per token.
 
-    A placeholder, and deliberately a bad one so nobody mistakes it for the real
-    thing. The chunking stage owns token counting because it is the stage that
-    has to respect a budget; ingest only needs a number good enough to sort by.
-    Replace it there rather than growing a tokenizer dependency here.
+    Deliberately crude, so nobody mistakes it for real counting. Chunking
+    replaces it with a count in the embedding model's word pieces; keep the
+    tokenizer dependency out of ingest.
     """
     return max(1, round(len(text) / CHARS_PER_TOKEN))
 
@@ -65,10 +63,8 @@ def build_passage(
 ) -> Passage:
     """Mint an anchored passage covering one whole locator unit.
 
-    ``char_start`` and ``char_end`` span the entire text because at ingest time
-    the passage *is* the unit the locator names — the page, the paragraph, the
-    DOM node. The chunking stage narrows both, within these boundaries and never
-    across them.
+    The anchor spans the entire text: at ingest the passage *is* the unit the
+    locator names. Chunking narrows it, never crossing these boundaries.
     """
     anchor = SourceAnchor(
         source_id=source.id,
@@ -99,8 +95,7 @@ class ExtractorRegistry:
         """Claim every media type the extractor declares.
 
         Refuses to shadow an existing claim: two adapters silently competing for
-        ``application/pdf`` is the kind of thing that shows up months later as
-        an inexplicable change in citation quality.
+        one media type would change citation quality with no visible cause.
         """
         for media_type in sorted(extractor.media_types):
             existing = self._extractors.get(media_type)

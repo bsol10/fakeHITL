@@ -1,14 +1,10 @@
 """Round-tripping provenance records through JSON and SQLite.
 
-The locator union carries a literal ``kind`` tag for exactly this reason
-(DESIGN.md, 2026-08-20): once a record is in a database column, ``isinstance``
-is not available and the tag is the only thing that says which variant is
-written there.
+Once a locator is in a database column, its ``kind`` tag is the only thing that
+says which variant it is.
 
-The rule this module exists to enforce is that a round trip is *lossless and
-checked*. An anchor that comes back from SQLite with a field quietly defaulted
-is no longer provenance — it is a plausible guess about provenance, which is the
-same failure as a confabulated statistic wearing a different hat. So every
+A round trip must be lossless and checked: an anchor that comes back with a
+field quietly defaulted is a guess about provenance, not provenance. So every
 loader here fails loudly on an unknown ``kind`` or a missing field rather than
 substituting a default.
 """
@@ -72,9 +68,8 @@ def locator_to_dict(locator: Locator) -> dict[str, Any]:
 def locator_to_json(locator: Locator) -> str:
     """A locator as a JSON string, for a SQLite text column.
 
-    Keys are sorted so two equal locators serialise identically — which is what
-    lets a stored locator be compared, deduplicated or used as a cache key
-    without parsing it first.
+    Keys are sorted so equal locators serialise identically and can be compared
+    without parsing.
     """
     return json.dumps(locator_to_dict(locator), sort_keys=True)
 

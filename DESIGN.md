@@ -1474,3 +1474,26 @@ and is not in the suite; the contract test is.
 appearance, security, integrations, team, the test-suite panel, the assistant,
 and notification read state. *Not yet:* the prior-report drop zone (phase 4),
 and who "Kathleen D." is (the prototype's signed-in user; phase 7 decides).
+
+**2026-11-04 — Comments state invariants; history lives here.** Comments and
+docstrings across `src/updater`, `scripts`, `tests` and the page's own JS
+comments were trimmed, roughly 2,150 lines removed, with every edited `.py`
+file AST-identical to before once docstrings are set aside. What stays in the
+code is the contract, the invariant and the trap, each with a pointer to this
+log where the reasoning is long. What went is the story of how a rule was
+found, measurements, dates and repetition, all of which this log already holds.
+**Keep it that way:** a new rule gets one sentence beside the code it protects
+and its full reasoning here. Docstrings that run as code were left alone:
+`schemas.py` attribute docstrings and route docstrings are served at `/docs`,
+and `extract_prototype_fixtures.py` uses its first docstring paragraph as its
+argparse description.
+
+Text found wrong on the way and corrected: openpyxl 3.1.5 *does* give a
+`MergedCell` its row and column (checked; that is how vertical merges reach the
+rows below), and the XLSX module docstring said merges propagate to every cell
+when they propagate down only. Three things were noticed and deliberately left,
+because each is a code or contract change rather than a comment: `TableRow.span`
+has no caller; the assert message in `test_index_pipeline.py` about a header
+leaking names the two tables the wrong way round; and the `eval` brief says all
+three measures run on every change, while BACKEND_PLAN.md phase 11 has the
+fidelity sampler produce a CSV for manual verdicts.

@@ -1,21 +1,10 @@
 """Multi-format extraction (BUILD_SPEC.md section 3).
 
-An adapter registry: one extractor per media type, every one of them returning
-``list[Passage]`` with a format-appropriate locator. Adding a format means
-adding one adapter and one locator variant — nothing downstream changes. That is
-the whole point of the design.
-
-Dispatch is on the *sniffed* media type, never the file extension. ASIL staff
-will upload a ``.txt`` that is actually a PDF.
-
-Each adapter's output passes an extraction quality gate before the passages are
-accepted (non-empty, alphanumeric ratio at or above 0.6, no "word" over 50
-characters). Failures are logged against the source and surfaced as
-``extraction-failed``; they never become silently empty evidence.
-
-Build order: PDF, HTML and DOCX first, then XLSX and CSV — ASIL's own material
-is mostly sector skills workbooks, which moved the tabular formats ahead of the
-spec's stated priority.
+An adapter registry: one extractor per media type, each returning
+``list[Passage]`` with a format-appropriate locator. Dispatch is on the
+*sniffed* media type, never the file extension. Every adapter's output passes
+the quality gate in :mod:`updater.ingest.quality`; failures are raised and
+surfaced as ``extraction-failed``, never returned as empty evidence.
 
 Usage::
 
@@ -23,10 +12,9 @@ Usage::
 
     passages = extract(Path("destinations-2025.pdf"), source)
 
-Everything below :func:`extract` is exported for the tests and for the CLI,
-which has to tell the failure modes apart: :class:`NeedsOCR` is a work item,
+The failure modes are distinct on purpose: :class:`NeedsOCR` is a work item,
 :class:`ExtractionFailed` is a bug report, and :class:`UnsupportedMediaType`
-means somebody registered a format we cannot read yet.
+means a registered format we cannot read yet.
 """
 
 from __future__ import annotations
@@ -85,11 +73,11 @@ __all__ = [
 
 @lru_cache(maxsize=1)
 def default_registry() -> ExtractorRegistry:
-    """The registry with the Phase 1 adapters already in it.
+    """The registry with every built-in adapter in it.
 
-    Adapters are imported inside the function, not at module scope, because
-    trafilatura drags in lxml and a date parser — about a second of import time
-    that code reaching for :class:`NeedsOCR` alone should not have to pay.
+    Adapters are imported here, not at module scope: trafilatura pulls in lxml
+    and a date parser, about a second of import time that code needing only
+    :class:`NeedsOCR` should not pay.
     """
     from updater.ingest.adapters import (
         CsvExtractor,
@@ -116,8 +104,8 @@ def extract(path: Path, source: Source) -> list[Passage]:
     """Extract anchored passages from one source file.
 
     Sniffs the media type, dispatches to the registered adapter, and applies the
-    quality gate. Every returned passage carries a `SourceAnchor` — design rule
-    1 starts being true here and must stay true all the way to the draft.
+    quality gate. Every returned passage carries a `SourceAnchor` (design rule
+    1), which must survive all the way to the draft.
 
     Raises:
         UnsupportedMediaType: nothing is registered for the sniffed type.

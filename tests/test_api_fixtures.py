@@ -1,16 +1,13 @@
 """The mock API's fixtures, and the script that extracts them from the prototype.
 
-BACKEND_PLAN.md phase 0: fixtures are read out of the approved prototype
-programmatically, never retyped, so they can be regenerated when it changes.
 Three things are pinned here:
 
 - the JS-literal parser reads what the prototype's arrays contain, and refuses
   what it does not understand rather than skipping past it;
 - the committed fixtures still match the prototype (skipped when the prototype
   is not in the checkout);
-- design rule 2 survives extraction. The prototype writes placeholder strings
-  where a value does not exist; the fixtures hold null, so the contract never
-  asks a later stage to emit text that looks like a finding and is not one.
+- design rule 2 survives extraction: where the prototype writes a placeholder
+  string for a value that does not exist, the fixtures hold null.
 """
 
 from __future__ import annotations
@@ -50,12 +47,12 @@ def fixture(name: str) -> Any:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-# --- the parser ------------------------------------------------------------
+# The parser
 
 
 def test_parser_reads_the_prototypes_quoting() -> None:
-    # Assembled rather than written out, so that the JS parser, not Python's
-    # own string handling, is what decodes the escape.
+    # Assembled at runtime so that the JS parser, not Python's string handling,
+    # is what decodes the escape.
     unicode_escape = "\\" + "u2019"
     assert parse(
         r"""{ before:'Not in last year\'s report', q:"say \"so\"", """
@@ -120,7 +117,7 @@ def test_parser_refuses_what_it_does_not_understand(bad: str) -> None:
         extract.parse_js_literal(bad)
 
 
-# --- drift -----------------------------------------------------------------
+# Drift
 
 
 @pytest.mark.skipif(not PROTOTYPE.exists(), reason="prototype not in this checkout")
@@ -130,7 +127,7 @@ def test_committed_fixtures_match_the_prototype(
     assert extract.main(["--check"]) == 0, capsys.readouterr().out
 
 
-# --- what the transforms promise -------------------------------------------
+# What the transforms promise
 
 
 def test_no_placeholder_string_survives_extraction() -> None:
@@ -160,8 +157,8 @@ def test_a_value_the_sources_do_not_state_is_null() -> None:
 
 
 def test_a_claim_that_cannot_be_verified_has_no_draft_text() -> None:
-    """A draft passage is source text at a verified anchor. An unverified claim
-    has none, so no draft entry may exist for it to fall back on."""
+    """A draft passage is source text at a verified anchor, which an unverified
+    claim does not have."""
     claims = {claim["id"]: claim for claim in fixture("claims.json")}
     for item in fixture("draft.json"):
         assert claims[item["claim_id"]]["status"] != "cannot"

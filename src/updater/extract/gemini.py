@@ -1,34 +1,29 @@
 """Gemini behind :class:`~updater.extract.model.EvidenceModel`.
 
-The only module in the package that imports the ``google-genai`` SDK, which
-lives behind ``uv sync --extra gemini``. The group's prototype in
-``src/backend`` reaches Gemini through LlamaIndex; this talks to the SDK
-directly, because structured output is one config field here and the
-extraction stage needs nothing an agent framework adds (BUILD_SPEC.md
-section 7).
+The only module that imports ``google-genai`` (``uv sync --extra gemini``). It
+uses the SDK directly, not LlamaIndex as the group's prototype in
+``src/backend`` does: structured output is one config field, and the stage
+needs nothing an agent framework adds (BUILD_SPEC.md section 7).
 
-Structured output is ``GenerateContentConfig(response_mime_type=
-"application/json", response_json_schema=...)``, as the installed SDK (2.29)
-declares it: ``response_json_schema`` takes JSON Schema and *requires*
-``response_mime_type``. Its docstring lists the keywords Gemini supports, and
+Structured output is ``response_json_schema``, which requires
+``response_mime_type="application/json"``. The SDK's docstring for it lists the
+keywords Gemini supports, and
 :func:`updater.extract.evidence.evidence_schema` uses only those.
 
-Configuration, all from the environment (``.env`` via the CLI):
+Configuration, from the environment (``.env`` via the CLI):
 
 ``GEMINI_API_KEY``, else ``GOOGLE_API_KEY``
-    One is required; missing is :class:`ModelUnavailable`. ``GOOGLE_API_KEY``
-    is accepted because the group's ``query.py`` sets it. **The order is ours,
-    not the SDK's** — left to itself the SDK prefers ``GOOGLE_API_KEY`` — so the
-    key is passed explicitly rather than left for the SDK to find.
+    One is required. ``GOOGLE_API_KEY`` is accepted because the group's
+    ``query.py`` sets it. The key is passed explicitly because the SDK on its
+    own prefers ``GOOGLE_API_KEY``, the opposite order.
 ``GEMINI_MODEL``
-    Required, with **no default**. The group code names ``gemini-3.5-flash``,
-    which has not been checked against the API's model list; a default nobody
-    has verified fails at the first call instead of at configuration time.
-    The live tests check that the configured model is in that list.
+    Required, with no default: a default nobody has verified would fail at the
+    first call instead of at configuration time. The live tests check that the
+    configured model is in the API's model list.
 
-The client is pinned to the Gemini Developer API (``vertexai=False``), which is
-where an API key works. Without that, ``GOOGLE_GENAI_USE_VERTEXAI`` in the
-environment would silently switch it to Vertex AI.
+The client is pinned to ``vertexai=False``, or ``GOOGLE_GENAI_USE_VERTEXAI`` in
+the environment would silently move it to Vertex AI, where an API key does not
+work.
 """
 
 from __future__ import annotations

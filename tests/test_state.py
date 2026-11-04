@@ -1,8 +1,6 @@
 """The state store: it survives a restart, the audit log cannot be rewritten,
 and it shares a file with the index without either one breaking the other.
 
-BACKEND_PLAN.md phase 1. Three properties, in the order they would hurt:
-
 *The audit log is append-only.* Checked against SQLite itself, not against the
 store's good manners: a statement that tries to change an entry is refused by
 the database.
@@ -154,7 +152,7 @@ def test_an_in_memory_store_starts_empty_every_time() -> None:
         assert store.decisions() == {}
 
 
-# --- the audit log is append-only ------------------------------------------
+# The audit log is append-only
 
 
 @pytest.mark.parametrize(
@@ -188,7 +186,7 @@ def test_the_store_offers_no_way_to_change_an_audit_entry() -> None:
     assert {name for name in public if "audit" in name} == {"append_audit", "audit"}
 
 
-# --- a change and its audit entry are one unit of work ---------------------
+# A change and its audit entry are one unit of work
 
 
 def test_a_failed_transaction_saves_nothing(db: Path) -> None:
@@ -209,7 +207,7 @@ def test_a_nested_unit_of_work_joins_the_enclosing_one(db: Path) -> None:
         assert store.run_ids() == []
 
 
-# --- an incompatible file is refused and left alone ------------------------
+# An incompatible file is refused and left alone
 
 
 def test_another_schema_version_is_refused_and_left_alone(db: Path) -> None:
@@ -241,7 +239,7 @@ def test_state_about_other_claims_is_refused(db: Path) -> None:
         assert store.decisions() == {3: "inc"}
 
 
-# --- two stores, one file --------------------------------------------------
+# Two stores, one file
 
 
 def open_index(path: Path, *, rebuild: bool = False) -> PassageStore:

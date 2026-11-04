@@ -1,22 +1,18 @@
 """Reading and validating the approved-source registry.
 
 Design rule 3 lives here: *if it isn't in the registry, it isn't evidence.* The
-rule is only as good as the boundary that enforces it, so this module provides
-that boundary as a function — :meth:`Registry.source_for_path` — rather than as
-a convention that each caller is trusted to remember. A file the registry does
-not list cannot be turned into a :class:`~updater.models.Source`, and without a
-``Source`` nothing can be ingested, chunked, retrieved or cited.
+boundary is a function, :meth:`Registry.source_for_path` (and
+:meth:`Registry.get`), not a convention each caller must remember. A file the
+registry does not list cannot become a :class:`~updater.models.Source`, and
+without a ``Source`` nothing can be ingested, retrieved or cited.
 
 The one sanctioned exception is ``scripts/dump_passages.py``, which fabricates a
-provisional ``Source`` so a developer can eyeball extraction on a file before it
-is approved. Nothing that script prints becomes evidence. Do not add a second
-exception.
+provisional ``Source`` to inspect a file before it is approved. Nothing it
+prints becomes evidence. Do not add a second exception.
 
-Validation is deliberately unforgiving. A registry is a small hand-edited file
-that is read once per run, so there is no cost to rejecting it loudly, and the
-alternative is the failure mode this project keeps running into: a typo that
-silently drops a field, surfacing months later as an absence of evidence that
-the compare stage reads as a finding about the world.
+Validation is deliberately unforgiving: the registry is a small hand-edited
+file, and a typo that silently drops a field would surface later as an absence
+of evidence that the compare stage reads as a finding.
 """
 
 from __future__ import annotations
@@ -67,8 +63,7 @@ _REQUIRED_FIELDS = frozenset(
 
 _OPTIONAL_FIELDS = frozenset({"last_checked", "last_content_hash", "notes"})
 """``notes`` is accepted and ignored: a place for a human to say why a source is
-on the list, which is exactly the kind of thing a strict loader would otherwise
-push people into writing as a YAML comment nobody parses."""
+on the list."""
 
 
 class RegistryError(Exception):
@@ -101,9 +96,8 @@ class MalformedRegistry(RegistryError):
 class SourceNotRegistered(RegistryError):
     """Something asked for a source the approved list does not contain.
 
-    This is design rule 3 refusing, and it is not an error to work around: the
-    fix is to add the document to the registry, which is a decision a human
-    makes, not one the pipeline makes for itself.
+    Design rule 3 refusing. Not an error to work around: the fix is to add the
+    document to the registry, which is a human decision.
     """
 
     def __init__(self, *, wanted: str, registry: Registry) -> None:
@@ -121,9 +115,8 @@ class SourceNotRegistered(RegistryError):
 def _normalised(path: Path) -> str:
     r"""A comparable form of a filesystem path.
 
-    ``normcase`` because this project is developed on Windows, where
-    ``Data\Sources\Report.docx`` and ``data/sources/report.docx`` are the same
-    file and a case-sensitive comparison would refuse a registered source.
+    ``normcase`` because on Windows ``Data\Sources\Report.docx`` and
+    ``data/sources/report.docx`` are the same file.
     """
     return os.path.normcase(str(path.resolve()))
 
@@ -132,10 +125,9 @@ def _normalised(path: Path) -> str:
 class Registry:
     """The approved sources, and the file they were read from.
 
-    Frozen, like the provenance records: the registry is what the run was
-    authorised against, and a pipeline that could append to it mid-run would
-    make rule 3 unauditable. The fetch stage updates ``last_checked`` on the
-    individual :class:`~updater.models.Source` objects, which stay mutable.
+    Frozen: the registry is what the run was authorised against, and a pipeline
+    that could append to it mid-run would make rule 3 unauditable. The
+    :class:`~updater.models.Source` objects inside stay mutable.
     """
 
     sources: tuple[Source, ...]
@@ -160,9 +152,8 @@ class Registry:
     def resolve_path(self, source: Source) -> Path:
         """The absolute path of a local source.
 
-        Relative paths in the registry resolve against the registry file's own
-        directory, so a registry and the documents beside it can be moved or
-        checked out anywhere without every entry needing editing.
+        Relative paths resolve against the registry file's directory, so the
+        registry and its documents can be moved together.
         """
         candidate = Path(source.url_or_path)
         if candidate.is_absolute():
@@ -172,8 +163,8 @@ class Registry:
     def source_for_path(self, path: Path) -> Source:
         """The registered source stored at ``path``.
 
-        The rule 3 boundary for anything that starts from a file rather than
-        from a source id — the CLI, and the ingest stage behind it.
+        The rule 3 boundary for anything that starts from a file rather than a
+        source id. Raises :class:`SourceNotRegistered`.
         """
         wanted = _normalised(path)
         for source in self.sources:
@@ -184,8 +175,8 @@ class Registry:
     def local_paths(self) -> list[tuple[Source, Path]]:
         """Every source that names a local file, with its resolved path.
 
-        Sources whose ``url_or_path`` is a URL are skipped: fetching them is the
-        next stage's job, and this stage only knows about files on disk.
+        Sources whose ``url_or_path`` is a URL are skipped; fetching them is
+        the fetch stage's job.
         """
         return [
             (source, self.resolve_path(source))
@@ -275,10 +266,8 @@ def _source_from(entry: Any, *, path: Path, position: int) -> Source:
     missing = _REQUIRED_FIELDS - present
     unknown = present - _REQUIRED_FIELDS - _OPTIONAL_FIELDS
 
-    # Reported together, not one at a time. A mistyped key produces both at once
-    # — 'topics: skills' leaves 'topic' missing — and being told only that
-    # 'topic' is missing, while `topics:` sits there in the file, makes the
-    # reader hunt for a difference the loader has already spotted.
+    # Reported together: a mistyped key ('topics:') produces both at once, and
+    # reporting only the missing 'topic' hides the typo the loader has found.
     problems = []
     if missing:
         problems.append(f"is missing required field(s): {', '.join(sorted(missing))}")
@@ -338,8 +327,8 @@ def _update_frequency(
 ) -> UpdateFrequency:
     value = entry["update_frequency"]
     if value == "biannual":
-        # Accepted once, removed because readers split on what it means. Ask
-        # rather than pick one: a wrong guess changes when a source is re-checked.
+        # Ambiguous, so ask rather than pick: a wrong guess changes when a
+        # source is re-checked.
         raise MalformedRegistry(
             path,
             "update_frequency 'biannual' is ambiguous: write 'half-yearly' for "
@@ -359,7 +348,7 @@ def _update_frequency(
 
 
 def _timestamp(entry: dict[str, Any], *, path: Path, where: str) -> datetime | None:
-    """``last_checked``, which the fetch stage writes back after a run."""
+    """The optional ``last_checked``, as an ISO-8601 string or YAML timestamp."""
     value = entry.get("last_checked")
     if value is None:
         return None

@@ -1,9 +1,5 @@
-"""Smoke test for the Phase 0 skeleton.
-
-There is no pipeline logic yet, so this covers the things that would invalidate
-every later phase if they broke: the package imports, provenance survives a full
-object graph (design rule 1), and unstated fields come back null rather than
-having to be argued out of a value (design rule 2).
+"""Smoke tests: the package imports, provenance survives a full object graph
+(design rule 1), and unstated fields come back null (design rule 2).
 """
 
 from __future__ import annotations
@@ -61,9 +57,8 @@ def test_every_pipeline_stage_imports(name: str) -> None:
 def test_provenance_survives_to_evidence() -> None:
     """Design rule 1: text carries its anchor from extraction to draft.
 
-    Assembled the way the pipeline will assemble it — source, anchor, passage,
-    evidence — then read back from the far end. Nothing in the chain is allowed
-    to hand on a bare string.
+    Source, anchor, passage and evidence are assembled, then read back from the
+    far end.
     """
     source = Source(
         id="dfe-destinations-2025",
@@ -103,12 +98,8 @@ def test_provenance_survives_to_evidence() -> None:
 
 
 def test_unstated_fields_stay_null() -> None:
-    """Design rule 2: null is the default, not a special case.
-
-    The real version of this test belongs to the extraction stage, feeding
-    passages that contain no statistic and asserting none is invented. This is
-    the constructor-level precondition for it: omitting a field must be less
-    work than supplying one.
+    """Design rule 2 at the constructor: omitting a field must be less work
+    than supplying one. ``test_extract.py`` checks that extraction invents none.
     """
     evidence = Evidence(
         finding="Participation is described as broadly stable.",

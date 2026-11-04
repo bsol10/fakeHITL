@@ -1,8 +1,7 @@
 """The rules the API enforces, as plain functions over the wire models.
 
-Kept apart from the state that holds the data, because the state is a phase 0
-stand-in and these are not. Phase 1 replaces the in-memory store with SQLite;
-the rules carry over unchanged, and so do the tests that pin them.
+Kept apart from the state, so the rules and the tests that pin them carry over
+unchanged when the fixtures give way to the real pipeline.
 
 A refusal is an exception, never a quietly filtered result. A scan that drops
 the one unapproved source it was asked for, and reports success on the rest,
@@ -138,8 +137,8 @@ def draft_ids(claims: Iterable[Claim], decisions: Mapping[int, Decision]) -> lis
     """The claims in the draft, in claim order: the prototype's ``buildDraft``.
 
     The included claims; or, until anything is included, every claim that can
-    be verified, skipped ones too. That fallback is the prototype's, kept so
-    its demo flow works without the extraction screen. It is safe because
+    be verified, skipped ones too. The fallback keeps the prototype's demo flow
+    working without the extraction screen, and is safe because
     :func:`sign_off_blockers` then requires a verdict on every one of them.
     """
     claims = list(claims)
@@ -207,9 +206,9 @@ def sign_off_blockers(
 
     The prototype's rule, matched exactly (``buildPublish`` and the publish
     button): every claim in the draft has a verdict, and at least one is
-    approved or edited. A flagged claim does not block sign-off. It is left out
-    of this edition, and the prototype's checklist says so. Design rule 5 is
-    why the rule exists: nothing reaches the report without a person's verdict.
+    approved or edited. A flagged claim does not block sign-off; it is left out
+    of this edition, as the prototype's checklist says. Design rule 5: nothing
+    reaches the report without a person's verdict.
     """
     blockers = []
     if signed_off:

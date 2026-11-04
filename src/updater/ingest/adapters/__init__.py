@@ -1,14 +1,8 @@
 """Format adapters, one per media type (BUILD_SPEC.md section 3).
 
-PDF, HTML and DOCX were built first because they cover the overwhelming
-majority of nonprofit research sources. XLSX and CSV followed immediately after,
-out of the spec's stated order, because ASIL's real material turned out to be
-mostly sector skills workbooks. PPTX, TXT/MD and images remain the bonus round;
-each needs one module here and one locator variant in :mod:`updater.models`, and
-nothing else in the pipeline changes.
-
-XLSX and CSV share :mod:`updater.ingest.tabular`, which owns the serialisation.
-The parsing differs; what a row *becomes* must not.
+PPTX, TXT/MD and images are not built yet; their locator variants already
+exist in :mod:`updater.models`, so each needs only a module here. XLSX, CSV and
+DOCX tables share :mod:`updater.ingest.tabular`, which owns the serialisation.
 """
 
 from __future__ import annotations

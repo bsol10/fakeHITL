@@ -1,13 +1,11 @@
 """The command line, and the refusal that matters most.
 
-``updater ingest some-file.pdf`` on a file nobody approved must fail, and fail
-before anything is read, embedded or stored. That is design rule 3 at the one
-place where breaking it would be convenient — the operator has the file right
-there, and indexing it is one flag away.
+``updater ingest some-file.pdf`` on a file nobody approved must fail before
+anything is read, embedded or stored: design rule 3, at the place where
+breaking it would be most convenient.
 
-The tests that need an embedding model are not here: they would spend twelve
-seconds proving something about torch. The pipeline glue is exercised in
-``test_index_pipeline.py`` with a stub embedder instead.
+Nothing here loads an embedding model; ``test_index_pipeline.py`` covers the
+pipeline glue with a stub embedder.
 """
 
 from __future__ import annotations
@@ -83,9 +81,8 @@ def test_search_on_an_empty_index_says_what_to_run(
 def test_search_finds_a_figure_by_its_text_without_the_model(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Full-text search needs no embedding model, so the index here has chunks
-    and no vectors. What is checked is the wiring and that every hit still
-    prints the place it came from, and which retriever ranked it where."""
+    """Full-text search needs no embedding model, so the index has chunks and
+    no vectors. Each hit still prints its place and which retriever ranked it."""
     pytest.importorskip("sqlite_vec")
     db = tmp_path / "index.sqlite3"
     salary = make_passage(
@@ -124,9 +121,7 @@ def test_a_command_is_required() -> None:
         build_parser().parse_args([])
 
 
-# --------------------------------------------------------------------------- #
 # updater extract
-# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture

@@ -1,42 +1,31 @@
 """The research update's state: what people and runs create, kept in SQLite.
 
-BACKEND_PLAN.md phase 1. Decisions, reviews, the audit log, scan runs, settings
-and the source registry's lifecycle, in the same file as the index
-(``UPDATER_DB_PATH``) but in tables of their own, with a schema version of
-their own in ``state_meta``. Not in ``meta``: the index treats a ``meta`` table
-that holds anything but its own keys as an incompatible index, so sharing it
-would make the next ``updater ingest`` refuse to run.
+Decisions, reviews, the audit log, scan runs, settings and the source registry's
+lifecycle, in the same file as the index (``UPDATER_DB_PATH``) but in tables of
+their own, with a schema version of their own in ``state_meta``. Never in the
+index's ``meta``: the index treats a ``meta`` holding anything but its own keys
+as incompatible, and the next ``updater ingest`` would refuse to run.
 
-*What is stored, and what is not.* This holds what people and runs create.
 Reviewed inputs are read where they live and never copied in: the registry's
-base list (the prototype's fixtures while the API is fixture-backed,
-``registry.yaml`` from phase 3) and, until phase 6 produces real ones, the
-claims. A source's status is an overlay keyed by its id, so nothing here ever
-writes the YAML.
+base list and, until the pipeline produces real ones, the claims. A source's
+status is an overlay keyed by its id, so nothing here writes ``registry.yaml``.
 
-Three properties are worth stating because nothing in the schema shows them.
+Three properties that nothing in the schema shows:
 
-*The audit log is append-only twice over.* :meth:`StateStore.append_audit` is
-the only method that writes it, and SQLite triggers abort any ``UPDATE`` or
-``DELETE`` on it, so a future method that tried would fail rather than quietly
-rewrite history.
-
-*A change and its audit entry are one transaction.* :meth:`StateStore.transaction`
-is the unit of work. A decision without its audit entry, or an entry for a
-decision that was never saved, cannot exist.
-
-*An incompatible file is refused, never rebuilt.* The index can be rebuilt from
-its sources in thirty seconds; the audit log cannot be rebuilt from anything.
-A different schema version is refused with the tables left as they are, and the
-first migration gets written alongside the first schema change. Likewise state
-written against a different set of claims is refused: decisions, reviews and
-audit entries name claims by id, and against other claims they would attach to
-the wrong ones.
+- *The audit log is append-only twice over.* :meth:`StateStore.append_audit` is
+  its only writer, and triggers abort any ``UPDATE`` or ``DELETE`` on it, so a
+  future method that tried would fail rather than rewrite history.
+- *A change and its audit entry are one transaction*
+  (:meth:`StateStore.transaction`): neither can be saved without the other.
+- *An incompatible file is refused, never rebuilt.* The index can be rebuilt
+  from its sources; the audit log cannot be rebuilt from anything. A different
+  schema version is refused with the tables left as they are, so the first
+  schema change owes a migration. State written against a different claim set
+  is refused too: it names claims by id, and would attach to the wrong ones.
 
 Plain ``sqlite3``, without ``sqlite-vec``: the ``api`` extra does not install
-it, and SQLite only needs the module for the index's virtual table, which
-nothing here touches. Not thread-safe; callers serialise, as
-:class:`updater.api.mock.MockState` does with its lock.
+it, and nothing here touches the index's virtual table. Not thread-safe; callers
+serialise, as :class:`updater.api.mock.MockState` does with its lock.
 """
 
 from __future__ import annotations
@@ -304,8 +293,6 @@ class StateStore:
                 "at a new one; the index rebuilds with: updater ingest"
             )
 
-    # ------------------------------------------------------------- lifecycle
-
     def __enter__(self) -> Self:
         return self
 
@@ -326,7 +313,7 @@ class StateStore:
 
         Nested use joins the enclosing transaction, so a method that is atomic on
         its own is also atomic as part of something larger. ``IMMEDIATE`` takes
-        the write lock up front, rather than discovering half way through that
+        the write lock up front rather than finding half way through that
         ``updater ingest`` holds it.
         """
         if self._connection.in_transaction:
@@ -339,8 +326,6 @@ class StateStore:
             self._connection.execute("ROLLBACK")
             raise
         self._connection.execute("COMMIT")
-
-    # ------------------------------------------------- the registry's lifecycle
 
     def source_states(self) -> dict[str, SourceState]:
         return {
@@ -404,8 +389,6 @@ class StateStore:
                 source.update_frequency,
             ),
         )
-
-    # ------------------------------------------------------------------ runs
 
     def run_ids(self) -> list[str]:
         return [
@@ -471,8 +454,6 @@ class StateStore:
             [(s.state, s.detail, run.run_id, i) for i, s in enumerate(run.sources)],
         )
 
-    # ------------------------------------------------- decisions and reviews
-
     def decisions(self) -> dict[int, str]:
         return {
             row["claim_id"]: row["decision"]
@@ -513,8 +494,6 @@ class StateStore:
             (claim_id, review.verdict, review.text, review.note),
         )
 
-    # ----------------------------------------------------------------- audit
-
     def append_audit(
         self,
         *,
@@ -548,8 +527,6 @@ class StateStore:
             )
             for row in self._connection.execute("SELECT * FROM audit ORDER BY seq")
         ]
-
-    # -------------------------------------------------------------- settings
 
     def setting(self, key: str) -> str | None:
         """A stored setting, serialised by the caller; ``None`` if never set."""

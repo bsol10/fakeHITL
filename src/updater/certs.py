@@ -1,30 +1,23 @@
 """Make HTTPS clients trust the certificates this machine already trusts.
 
-The build network runs a TLS-intercepting proxy — currently Norton Web/Mail
-Shield, which reissues every certificate under its own root. That root is in the
-Windows certificate store, so anything using the OS trust store works, and
-anything using ``certifi``'s bundled roots fails with ``UnknownIssuer`` or
-``unable to get local issuer certificate``.
-
-This is the same cause as ``system-certs = true`` under ``[tool.uv]`` in
-pyproject.toml, reaching a new client: ``huggingface_hub`` downloads the
-embedding model over ``httpx``, which verifies against ``certifi``. The symptom
-is a misleading one — *"We couldn't connect to https://huggingface.co"* — that
-reads like the host is unreachable when the connection is fine and only the
-verification failed.
+The build network runs a TLS-intercepting proxy (Norton Web/Mail Shield) that
+reissues every certificate under its own root. That root is in the Windows
+certificate store but not in ``certifi``, so clients verifying against
+``certifi`` fail: ``httpx``, and so ``huggingface_hub``, which reports it
+misleadingly as *"We couldn't connect to https://huggingface.co"*. Same cause as
+``system-certs = true`` under ``[tool.uv]`` in pyproject.toml.
 
 :func:`ensure_system_certs` exports the OS trust store to a PEM once and points
-``SSL_CERT_FILE`` at it, which every ``ssl``-based client honours. It is
-deliberately conservative:
+the variables in :data:`CA_BUNDLE_ENV_VARS` at it. It is deliberately
+conservative:
 
-* it never overrides an ``SSL_CERT_FILE`` the operator set deliberately;
-* it does nothing on platforms where the OS store is already the default
-  (``ssl.enum_certificates`` exists only on Windows);
-* it *adds* roots the operating system already trusts and removes none, so it
-  cannot make verification more permissive than the machine's own browsers.
+* it never overrides a bundle the operator configured;
+* it does nothing off Windows (``ssl.enum_certificates`` exists only there);
+* it only *adds* roots the OS already trusts, so it cannot make verification
+  more permissive than the machine's own browsers.
 
-If a third client starts failing on certificates, this is the cause and this is
-the knob. Do not reach for ``verify=False``.
+If another client starts failing on certificates, this is the knob. Never use
+``verify=False``.
 """
 
 from __future__ import annotations
@@ -50,9 +43,8 @@ def export_system_certs(destination: Path) -> int:
     """Write the OS trust store to ``destination`` as PEM. Returns the count.
 
     Every certificate is exported, not only those flagged for server
-    authentication: the first attempt at this filtered on the TLS server-auth
-    purpose and dropped the Norton root, which is precisely the certificate the
-    export exists to capture.
+    authentication: filtering on that purpose drops the proxy's root, which is
+    the certificate this export exists to capture.
     """
     enumerate_certs = getattr(ssl, "enum_certificates", None)
     if enumerate_certs is None:
@@ -87,8 +79,8 @@ def ensure_system_certs(cache_dir: Path | None = None) -> Path | None:
     was needed (a bundle is already configured, or this platform's default trust
     store is the OS one).
 
-    Call it before anything that downloads — the model fetch, and later the
-    fetch stage. It is idempotent and cheap after the first call.
+    Call it before anything that downloads. Idempotent, and cheap after the
+    first call.
     """
     for variable in CA_BUNDLE_ENV_VARS:
         configured = os.environ.get(variable)

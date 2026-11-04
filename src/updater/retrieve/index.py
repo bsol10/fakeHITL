@@ -1,22 +1,11 @@
-"""Building the index: register, extract, chunk, embed, store.
+"""Building the index: extract, chunk, embed and store each registered source.
 
-The first four pipeline stages of BUILD_SPEC.md section 4 wired together. Each
-one already exists on its own; this module is only the sequence, and the reason
-it is a module rather than a block of CLI code is that the sequence is what the
-tests need to exercise end to end.
+Every function takes a :class:`~updater.models.Source` obtained from
+:mod:`updater.registry`; nothing here constructs one (design rule 3).
 
-Two properties it is responsible for:
-
-*The ``Source`` comes from the registry and nowhere else.* Every function here
-takes a :class:`~updater.models.Source` that a caller obtained from
-:mod:`updater.registry`. There is no path through this module that constructs
-one, which is design rule 3 holding at the only place it could be broken by
-convenience.
-
-*One bad source does not stop the run.* A document that needs OCR, or a format
-with no adapter yet, is reported and the rest of the registry is still indexed —
-but it is reported as a **failure**, never as a source that produced nothing.
-Those two look identical downstream and mean opposite things.
+One bad source does not stop the run, but it is reported as a **failure**,
+never as a source that produced nothing: the two look identical downstream and
+mean opposite things.
 """
 
 from __future__ import annotations
@@ -59,13 +48,8 @@ class IndexReport:
 
 @dataclass(frozen=True, slots=True)
 class IndexFailure:
-    """A source that could not be indexed, and why.
-
-    Kept as a value rather than raised out of a batch run because the caller
-    needs the successes *and* the failures: exiting on the first bad file would
-    hide how many others are fine, and swallowing it would be the silent loss
-    BUILD_SPEC.md section 3 rules out.
-    """
+    """A source that could not be indexed, and why. Returned rather than raised,
+    so a batch run reports its failures beside its successes."""
 
     source_id: str
     path: Path
@@ -87,8 +71,7 @@ def index_source(
     """Extract, chunk, embed and store one approved source.
 
     Raises:
-        IngestError: extraction failed. The index is left unchanged — the
-            replacement is one transaction and it is never reached.
+        IngestError: extraction failed. The index is left unchanged.
     """
     counter = counter or default_token_counter()
     passages = extract(path, source)

@@ -1,41 +1,29 @@
 """Verbatim-span verification: does the quoted text really appear in the passage?
 
-BUILD_SPEC.md section 4 calls this "a cheap, extremely effective hallucination
-guard — implement it, do not skip it", and DESIGN.md lists skipping it among
-the things the design rules rule out. It is a pure function in a module of its
-own that imports no provider (BACKEND_PLAN.md phase 5), so it can be read,
-tested and trusted without a model anywhere near it.
+The hallucination guard of BUILD_SPEC.md section 4. Pure, and imports no
+provider, so it can be tested without a model.
 
 Two passes, and only two:
 
-1. **Exact.** The quote, character for character.
-2. **Whitespace-flexible, and nothing else.** The quote's words must appear in
-   the same order with *some* whitespace between each pair. This forgives a
-   model that wrote one space where the document has a line break or two
-   spaces — common in text extracted from PDFs and table cells. It does not
-   forgive a changed digit, a straightened quote mark, a corrected typo or a
-   dropped word, because each of those is the model's text rather than the
-   document's, and the citation would be vouching for words the source never
-   printed.
+1. **Exact**, character for character.
+2. **Whitespace-flexible, and nothing else**: the quote's words in order with
+   any whitespace between them, forgiving one space where the document has a
+   line break, as PDF and table-cell text often does. A changed digit, a
+   straightened quote mark, a corrected typo or a dropped word is not forgiven:
+   the citation would vouch for words the source never printed.
 
-Both passes match **whole tokens only**: a quote that starts or ends on a
-letter or digit must not continue a word in the passage. Without that, ``3.1%``
-verifies against a passage reading ``13.1%`` — a one-digit near miss that is,
-character for character, a substring of the truth.
+Both passes match **whole tokens only**, or ``3.1%`` would verify against a
+passage reading ``13.1%``.
 
-Whichever pass matches, the span returned is **the document's characters**, not
-the model's quote. What a reviewer reads beside a finding is the source.
+The span returned is always the document's characters, never the model's
+quote. Offsets are **locator-relative**: a match at index ``i`` of
+``passage.text`` is at ``passage.anchor.char_start + i``. Forgetting the
+addition would point every citation from a chunk that starts mid-page at the
+wrong text, and still read well. :func:`require_derives_within` checks the
+result against the passage's anchor.
 
-Offsets are **locator-relative**, like every anchor in the system: a match at
-index ``i`` of ``passage.text`` is at ``passage.anchor.char_start + i`` in the
-locator unit. A chunk that starts 300 characters into its page has
-``char_start == 300``, and forgetting the addition would point every citation
-from that chunk 300 characters early, at text that is really there — the kind of
-wrong that reads perfectly well. :func:`require_derives_within` checks the
-result against the passage's own anchor before it is returned.
-
-A quote that appears more than once is anchored at its first occurrence. The
-characters at both places are identical, so the citation is true either way.
+A repeated quote is anchored at its first occurrence; the characters at each
+are identical, so the citation is true either way.
 """
 
 from __future__ import annotations

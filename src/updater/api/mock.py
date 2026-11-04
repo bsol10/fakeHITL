@@ -1,28 +1,25 @@
 """The state behind the API: the prototype's content, and what people do with it.
 
 The state holds **one research update**: one claim set, one set of decisions and
-reviews, one sign-off. A run id selects scan progress and nothing else. That is
-the prototype's own model, since it keeps a single update in memory too. Claims
-become per run when the pipeline produces them.
+reviews, one sign-off. A run id selects scan progress and nothing else, as in the
+prototype. Claims become per run when the pipeline produces them.
 
-Two kinds of data, kept apart since phase 1:
+Two kinds of data, kept apart:
 
 - *The prototype's content*: claims, draft text, scan outcomes, dashboard cards,
-  notifications, and the registry's base list. Read from the fixtures and never
-  written anywhere. Copying the prototype's invented passages into the database
-  that holds the real, anchored chunks would put source text with no anchor in
-  the production file (design rule 1).
+  notifications and the registry's base list. Read from the fixtures and never
+  written anywhere: the prototype's invented passages have no anchor, and must
+  not enter the database that holds the real, anchored chunks (design rule 1).
 - *What people and runs create*: proposed sources and status changes, runs,
   decisions, reviews, the audit log and settings. Kept in
   :class:`updater.state.StateStore` and read from it on every call, so a restart
   loses nothing and there is no in-memory copy to drift from the database.
 
-Policies are enforced even here (BACKEND_PLAN.md phase 0): the frontend should
-be built against the refusals it will meet, not discover them in phase 9. The
-rules live in :mod:`updater.api.policy`; this module only holds data.
+The policies in :mod:`updater.api.policy` are enforced here already, so the
+frontend is built against the refusals it will meet.
 
 FastAPI runs plain ``def`` endpoints on a thread pool, so every method that
-touches state takes the lock. Two overlapping polls of one run must advance it
+touches state takes the lock: two overlapping polls of one run must advance it
 by two sources, not by one source twice.
 """
 
@@ -163,8 +160,8 @@ def _records(model: type[M], name: str) -> list[M]:
 
 
 def _local_now() -> datetime:
-    # Seconds are the useful precision for an audit trail that people read;
-    # entries within one second keep their order in the log regardless.
+    # Seconds suit an audit trail people read; the log keeps the order of
+    # entries within one second regardless.
     return datetime.now().astimezone().replace(microsecond=0)
 
 
@@ -211,9 +208,8 @@ class MockState:
     clock: Callable[[], datetime] = _local_now
     """Where "now" comes from. Injected so tests can fix the date."""
     path: Path | None = None
-    """The database file. ``None`` keeps the state in memory for the life of
-    the process, which is what the API's tests get; ``updater serve`` passes
-    the file the index lives in."""
+    """The database file; ``None`` keeps the state in memory, as the API's
+    tests do. ``updater serve`` passes the index's file."""
 
     base_sources: list[Source] = field(init=False)
     """The registry's base list. Its statuses are overlaid from the state."""
@@ -241,9 +237,8 @@ class MockState:
         self.meta = Meta.model_validate(fixtures.load("meta.json"))
         self.default_settings = Settings.model_validate(fixtures.load("settings.json"))
 
-        # Every claim that can enter the draft needs its verified passage. A
-        # fallback here, as the prototype has, would show the reviewer the
-        # claim's own text as if it were the source's.
+        # Every draftable claim needs its verified passage. The prototype's
+        # fallback would show the reviewer the claim's own text as the source's.
         missing = [
             c.id
             for c in self.claims.values()
@@ -259,7 +254,7 @@ class MockState:
     def close(self) -> None:
         self._store.close()
 
-    # --- 1 source registry -------------------------------------------------
+    # 1 Source registry
 
     def sources(self) -> list[Source]:
         """The base list, then proposed sources, each with its lifecycle."""
@@ -302,7 +297,7 @@ class MockState:
                 )
             return self._sources()[source_id]
 
-    # --- runs --------------------------------------------------------------
+    # 2 Source scan
 
     def start_run(self, source_ids: Sequence[str]) -> Run:
         """Queue a scan of the named sources and start on the first.
@@ -362,6 +357,8 @@ class MockState:
                 self._store.update_run(run)
             return _view(run)
 
+    # 3 Extraction
+
     def claims_for(self, run_id: str) -> list[Claim]:
         with self._lock:
             self._run(run_id)
@@ -398,7 +395,7 @@ class MockState:
             )
         return PriorReport(filename=filename, media_type=media_type, size=len(data))
 
-    # --- 4 draft review ----------------------------------------------------
+    # 4 Draft review
 
     def draft(self, run_id: str) -> list[DraftItem]:
         with self._lock:
@@ -431,7 +428,7 @@ class MockState:
             self._run(run_id)
             return self._review_trail()[::-1]
 
-    # --- 5 sign-off --------------------------------------------------------
+    # 5 Sign-off
 
     def publish(self, run_id: str) -> Publish:
         with self._lock:
@@ -475,7 +472,7 @@ class MockState:
                 writer.writerow([entry.t.isoformat(), entry.who, entry.action, claim])
             return out.getvalue()
 
-    # --- settings ----------------------------------------------------------
+    # Settings
 
     def settings(self) -> Settings:
         with self._lock:
@@ -490,8 +487,6 @@ class MockState:
                     "thresholds", requested.thresholds.model_dump_json()
                 )
             return self._settings()
-
-    # --- internals ---------------------------------------------------------
 
     def _log(
         self,

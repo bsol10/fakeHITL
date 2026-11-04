@@ -1,35 +1,25 @@
-"""The index: chunks, their anchors, and their vectors, in one SQLite file.
+"""The index: chunks, their anchors and their vectors, in one SQLite file.
 
-BUILD_SPEC.md section 4 is explicit that a proof of concept does not stand up a
-vector database service. One file, ``sqlite-vec`` for the nearest-neighbour
-search, and the anchors stored beside the text they came from.
+No vector database service (BUILD_SPEC.md section 4): ``sqlite-vec`` for
+nearest neighbours, FTS5 for full text, and the anchors beside their text.
 
-Two design points are worth stating because they are not obvious from the
-schema.
+*Anchors are columns, not a blob.* The locator stays JSON (its ``kind`` tag
+exists for this round trip), but ``source_id``, ``char_start``, ``char_end`` and
+``extracted_at`` are real columns, so citations can be sampled and audited by
+query (BUILD_SPEC.md section 6).
 
-*Chunks are stored with their anchor decomposed into columns, not as a blob.*
-The locator keeps its JSON form (the ``kind`` tag exists to survive exactly this
-trip) but ``source_id``, ``char_start``, ``char_end`` and ``extracted_at`` are
-real columns. A citation that cannot be queried is a citation nobody audits, and
-the evaluation harness in BUILD_SPEC.md section 6 has to sample anchors and
-resolve them.
+*A source is re-indexed atomically, never appended to.* A stale copy left
+behind would be retrievable beside the current one, under the same anchor with
+different text.
 
-*A source is re-indexed atomically, never appended to.* Ingesting a document
-twice replaces its chunks; it does not leave last run's copies behind to be
-retrieved alongside this run's. Stale duplicates would be the worst possible
-failure here — two chunks with the same anchor and different text, one of them
-describing a document that no longer says that.
+*The index records the model and chunk settings it was built with* and refuses
+to mix them.
 
-The index also records the model and chunk settings it was built with, and
-refuses to mix them. Vectors from two different models in one table are not
-comparable, and the symptom — slightly worse retrieval — is one nobody would
-trace back to its cause.
-
-*Every chunk is in a full-text index as well as the vector index.* Dense
-retrieval cannot find a number: ``109,860`` embeds as three word pieces with no
-meaning. ``chunks_fts`` is an FTS5 table over the chunk text, kept in step with
-``chunks`` by triggers, so it is written in the transaction that writes the
-vectors and no code path can update one index and forget the other.
+*Full text is kept in step by triggers.* ``chunks_fts`` is an external-content
+FTS5 table over ``chunks.text``, written by triggers in whatever transaction
+changes ``chunks``, so no code path can update one index and forget the other.
+``chunks`` declares ``rowid INTEGER PRIMARY KEY`` so that ``VACUUM`` cannot
+renumber the rowids ``chunks_fts`` points at.
 """
 
 from __future__ import annotations
@@ -67,9 +57,8 @@ __all__ = [
 ]
 
 SCHEMA_VERSION = 2
-"""Bumped when the tables change shape. An older file is rejected, not migrated:
-``updater ingest --rebuild`` replaces it in thirty seconds. Version 2 added
-``chunks_fts`` and gave ``chunks`` an explicit integer rowid."""
+"""Bumped when the tables change shape. An older index is rejected, not
+migrated: ``updater ingest --rebuild`` rebuilds it from its sources."""
 
 DEFAULT_DB_PATH = Path("data/updater.sqlite3")
 """Matches ``UPDATER_DB_PATH`` in .env.example."""
@@ -147,7 +136,8 @@ END;
 
 _INDEX_TABLES = ("window_vectors", "windows", "chunks_fts", "chunks", "sources", "meta")
 """Every table the index owns, children before parents. The file also holds the
-API's state, so a rebuild drops these by name and nothing else."""
+API's state, so a rebuild drops these by name and nothing else. Never add a
+state table here: ``DROP TABLE`` bypasses the audit log's append-only triggers."""
 
 
 class StoreError(Exception):
@@ -165,21 +155,16 @@ class IncompatibleIndex(StoreError):
 class ScoredChunk:
     """One retrieved chunk and how well it matched.
 
-    From :meth:`PassageStore.search`, ``score`` is cosine similarity in
-    [-1, 1], 1 being identical. It is derived from the stored distance rather
-    than stored itself, so it cannot disagree with the vector it came from.
-
-    From :meth:`PassageStore.search_text` it is BM25, negated so that higher is
-    better here too. The two scales have nothing in common: compare ranks
-    across them, never scores.
+    ``score`` is cosine similarity in [-1, 1] from :meth:`PassageStore.search`,
+    and BM25 negated so higher is better from :meth:`PassageStore.search_text`.
+    The two scales have nothing in common: compare ranks, never scores.
     """
 
     passage: Passage
     score: float
     window_ordinal: int = 0
-    """Which window of the chunk matched best — the debugging half of the answer
-    to "why did this come back?". Text search matches the whole chunk, so it
-    leaves this at 0."""
+    """Which window of the chunk matched best. Text search matches the whole
+    chunk and leaves it at 0."""
 
 
 def database_path(path: Path | None = None) -> Path:
@@ -193,19 +178,18 @@ def database_path(path: Path | None = None) -> Path:
 def match_expression(query: str) -> str | None:
     """The query as an FTS5 expression that cannot be a syntax error.
 
-    Each whitespace-separated word becomes a quoted FTS5 string, and the
-    strings are joined with ``OR`` so that a chunk need not contain every word
-    to be found — BM25 ranks the ones that contain more, and rarer, ones first.
+    Each whitespace-separated word becomes a quoted FTS5 string, joined with
+    ``OR`` so a chunk need not contain every word; BM25 ranks chunks with more,
+    and rarer, words first.
 
-    Quoting does two jobs at once. It makes FTS5's operators (``AND``, ``OR``,
-    ``NOT``, ``NEAR``, ``*``, ``^``, ``:``) plain words. And the tokenizer
-    splits ``109,860`` at the comma, so the quoted word becomes the *phrase*
-    ``109 860``, which matches ``$109,860`` and not a row holding 109 in one
-    column and 860 in another.
+    Quoting makes FTS5's operators (``AND``, ``OR``, ``NOT``, ``NEAR``, ``*``,
+    ``^``, ``:``) plain words. And because the tokenizer splits ``109,860`` at
+    the comma, the quoted word is the *phrase* ``109 860``, which matches
+    ``$109,860`` and not a row with 109 in one column and 860 in another.
 
-    A word with no letter or digit in it would quote to a string with no tokens,
-    and is dropped. NUL ends an FTS5 string early, so it is a separator here.
-    Returns None when nothing searchable is left.
+    A word with no letter or digit would quote to an empty string, and is
+    dropped. NUL ends an FTS5 string early, so it is a separator here. Returns
+    None when nothing searchable is left.
     """
     words = [
         word
@@ -223,12 +207,7 @@ def _pack(vector: Sequence[float]) -> bytes:
 
 
 class PassageStore:
-    """Read/write access to the chunk index.
-
-    Usable as a context manager, which is the recommended form — an index left
-    open with an uncommitted transaction is an index that silently loses the
-    run's work.
-    """
+    """Read/write access to the chunk index. Use it as a context manager."""
 
     def __init__(
         self,
@@ -241,10 +220,9 @@ class PassageStore:
     ) -> None:
         """Open the index, creating it if the file holds none.
 
-        ``rebuild`` drops the index first — every table in it, not just the
-        rows — so it also opens an index built with other settings or an older
-        schema, which is the case it exists for. The API's state in the same
-        file is left alone.
+        ``rebuild`` drops the index's tables first, so it also opens an index
+        built with other settings or an older schema. The API's state in the
+        same file is left alone.
 
         Raises:
             IncompatibleIndex: the file holds an index built differently, and
@@ -263,8 +241,6 @@ class PassageStore:
         except BaseException:
             self._connection.close()
             raise
-
-    # ----------------------------------------------------------------- setup
 
     def _connect(self) -> sqlite3.Connection:
         if str(self.path) != ":memory:":
@@ -324,12 +300,10 @@ class PassageStore:
     def _check_settings(self) -> None:
         """Refuse to add to an index built differently from this one.
 
-        Vectors from two models, or chunks cut to two different budgets, sitting
-        in one table produce retrieval that is quietly worse rather than
-        obviously broken. Nobody would trace that back here.
-
-        Runs before any other table is created, so a refused file is left
-        exactly as it was found rather than half-upgraded.
+        Vectors from two models, or chunks cut to two budgets, in one table give
+        retrieval that is quietly worse rather than obviously broken. Runs
+        before any other table is created, so a refused file is left exactly as
+        it was found.
         """
         wanted = self._settings()
         with self._connection:
@@ -358,8 +332,6 @@ class PassageStore:
                 + "\nRebuild it: updater ingest --rebuild"
             )
 
-    # ------------------------------------------------------------- lifecycle
-
     def __enter__(self) -> Self:
         return self
 
@@ -373,8 +345,6 @@ class PassageStore:
 
     def close(self) -> None:
         self._connection.close()
-
-    # ----------------------------------------------------------------- write
 
     def upsert_source(self, source: Source) -> None:
         """Record a registry entry. Re-registering updates it in place."""
@@ -418,8 +388,7 @@ class PassageStore:
     ) -> int:
         """Index one source's chunks, replacing anything already stored for it.
 
-        One transaction: a run interrupted halfway leaves the previous index
-        intact rather than half of each.
+        One transaction: an interrupted run leaves the previous index intact.
         """
         by_id = {chunk.id: chunk for chunk in chunks}
         window_list = list(windows)
@@ -485,10 +454,9 @@ class PassageStore:
     def _delete_source_rows(self, source_id: str) -> None:
         """Drop a source's chunks, windows and vectors.
 
-        The vec0 table is virtual, so ``ON DELETE CASCADE`` does not reach it —
-        its rows have to go first and by hand. Forgetting this would leave
-        vectors pointing at deleted windows, and the join would silently drop
-        them: a re-indexed source that retrieves nothing.
+        The vec0 table is virtual, so ``ON DELETE CASCADE`` does not reach it:
+        its rows are deleted by hand, first. Otherwise its vectors outlive their
+        windows and a re-indexed source can silently retrieve nothing.
         """
         rowids = [
             row["rowid"]
@@ -505,8 +473,6 @@ class PassageStore:
             "DELETE FROM window_vectors WHERE rowid = ?", [(r,) for r in rowids]
         )
         self._connection.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
-
-    # ------------------------------------------------------------------ read
 
     def source_ids(self) -> list[str]:
         return [
@@ -597,10 +563,10 @@ class PassageStore:
     ) -> list[ScoredChunk]:
         """Nearest chunks to a query vector, best window wins.
 
-        The nearest-neighbour search runs over *windows*, and several windows can
-        belong to one chunk, so it asks for ``top_k * overfetch`` of them and then
-        collapses to chunks by best score. Without the over-fetch, a query whose
-        top hits all came from one long chunk would return a single result.
+        The search runs over *windows*, several of which can belong to one
+        chunk, so it fetches ``top_k * overfetch`` windows and collapses them to
+        chunks by best score. Without the over-fetch, a query whose top hits all
+        came from one long chunk would return a single result.
         """
         if len(vector) != self.dimensions:
             raise StoreError(
@@ -638,10 +604,8 @@ class PassageStore:
     def search_text(self, query: str, *, top_k: int = 10) -> list[ScoredChunk]:
         """Chunks containing the query's words, best BM25 first.
 
-        The query is user text, not FTS5 syntax: :func:`match_expression`
-        quotes every word, so ``NOT``, ``NEAR`` or a stray quote is searched
-        for rather than parsed. Equal BM25 scores fall back to chunk id, so the
-        same query over the same index always gives the same order.
+        The query is user text, never FTS5 syntax (see :func:`match_expression`).
+        Equal scores are ordered by chunk id, so the order is deterministic.
         """
         expression = match_expression(query)
         if expression is None:

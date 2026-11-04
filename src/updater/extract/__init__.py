@@ -1,13 +1,9 @@
 """Evidence extraction (BUILD_SPEC.md section 4, ``extract_evidence``).
 
-One LLM call per claim over the retrieved passages, structured output only. The
-prompt must instruct the model to use nothing but the supplied passages, to
-return null for anything they do not state, and to quote the supporting span
-verbatim.
-
-Then verify that quoted span actually appears in the passage, by plain string
-match. If it does not, discard the evidence and log it. This is a cheap and
-extremely effective hallucination guard — it is not optional.
+One structured-output model call per claim over its retrieved passages, then a
+string match of every quoted span against the passage it names. A quote that is
+not there is discarded, logged and counted. That check is the hallucination
+guard, and it is not optional.
 
 Modules, in the order a call passes through them:
 

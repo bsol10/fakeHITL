@@ -2,13 +2,10 @@
 
 A DOCX table cell is tabular data, so it goes through the same serialisation the
 XLSX adapter uses and carries a :class:`~updater.models.CellLocator`. The tests
-that matter here are about the *label*, not the range.
-
-Both header bugs found on real ASIL files produced correct cell ranges with
-wrong column names — ``Data source: Reference period``, ``Pay Premium
-(AUD/year): $109,860`` — and a range assertion cannot see either of them. So the
-central test resolves a known cell to its table, row, column *and header label*,
-and a mutant that shifts labels by one column proves the label half has teeth.
+that matter here are about the *label*, not the range: the header bugs found on
+real ASIL files had correct cell ranges and wrong column names, which no range
+assertion can see. A mutant that shifts labels by one column proves the label
+checks have teeth.
 """
 
 from __future__ import annotations
@@ -30,10 +27,6 @@ from updater.models import BlockLocator, CellLocator, MediaType, Passage
 
 REAL_DOCX = Path("data/sources/ASIL_Jobs_of_the_Future.docx")
 
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
-
 
 def cells(passages: list[Passage]) -> dict[tuple[str, str], str]:
     """``{(table identity, cell range): text}`` for the cell-anchored passages."""
@@ -50,18 +43,12 @@ def extract_fixture(tmp_path: Path) -> list[Passage]:
     return extract(path, make_source(media_type=MediaType.DOCX))
 
 
-# --------------------------------------------------------------------------- #
 # The locator
-# --------------------------------------------------------------------------- #
 
 
 def test_a_table_cell_resolves_to_table_row_column_and_header(tmp_path: Path) -> None:
-    """The whole contract in one assertion.
-
-    "Mining" is row 3 of the table's data, column A, and its automation-risk
-    figure sits in column C under a header reading "Est. Automation Risk". A
-    citation has to carry all four facts or a reviewer cannot check it.
-    """
+    """The whole contract: a citation carries the table, the row, the column
+    and the header label, or a reviewer cannot check it."""
     passages = extract_fixture(tmp_path)
     table = table_name(1, 1)
 
@@ -102,18 +89,12 @@ def test_table_row_numbers_are_within_the_table_not_the_document(
     assert ranges == ["A1:D1", "A2", "A3:D3", "A4:D4", "A5:D5", "A6", "A7:D7", "A8:D8"]
 
 
-# --------------------------------------------------------------------------- #
 # Document order
-# --------------------------------------------------------------------------- #
 
 
 def test_tables_interleave_with_paragraphs_in_document_order(tmp_path: Path) -> None:
-    """A table's position is part of its meaning.
-
-    The paragraph above a table is what says what the table shows. Appending
-    tables at the end would put every one of them next to the wrong text, and
-    the chunking stage would then build neighbourhoods that do not exist.
-    """
+    """A table's position is part of its meaning: the paragraph above it is
+    what says what it shows."""
     passages = extract_fixture(tmp_path)
 
     kinds = [type(passage.anchor.locator).__name__ for passage in passages]
@@ -124,11 +105,8 @@ def test_tables_interleave_with_paragraphs_in_document_order(tmp_path: Path) -> 
 
 
 def test_paragraph_indices_ignore_tables(tmp_path: Path) -> None:
-    """A table between two paragraphs does not consume a paragraph index.
-
-    ``paragraph_index`` addresses ``document.paragraphs``, and a reviewer
-    counting blocks in Word counts the same way.
-    """
+    """``paragraph_index`` addresses ``document.paragraphs``, which is how a
+    reviewer counting paragraphs in Word counts."""
     passages = extract_fixture(tmp_path)
 
     blocks = [
@@ -140,20 +118,13 @@ def test_paragraph_indices_ignore_tables(tmp_path: Path) -> None:
     assert [locator.paragraph_index for locator in blocks] == [0, 1]
 
 
-# --------------------------------------------------------------------------- #
 # The label, and the mutant that proves the assertion
-# --------------------------------------------------------------------------- #
 
 
 def test_a_banner_row_inside_a_table_does_not_steal_the_header(
     tmp_path: Path,
 ) -> None:
-    """Regression, from ASIL_Jobs_of_the_Future.docx.
-
-    The banner splits the header away from the rows below it. Without carrying
-    the header across, the first data row is crowned and every row after it
-    reads ``Industry: Agriculture, Forestry & Fishing``.
-    """
+    """Regression, from ASIL_Jobs_of_the_Future.docx (see ``BANNERED_TABLE``)."""
     passages = extract_fixture(tmp_path)
     table = table_name(1, 1)
     found = cells(passages)
@@ -183,10 +154,8 @@ def test_the_header_label_assertion_catches_a_shifted_label(
 ) -> None:
     """Mutation test for the label half, which no cell-range test can reach.
 
-    Both header bugs found on real ASIL files produced perfectly correct ranges
-    and wrong column names. This mutant reproduces that class exactly: labels
-    slide one column left, so every value keeps its anchor and loses its
-    meaning. If the assertions above ever stop checking labels, this fails.
+    Labels slide one column left, so every value keeps its anchor and loses its
+    meaning: the class every header bug found on real files belonged to.
     """
     import updater.ingest.tabular as tabular
 
@@ -208,9 +177,7 @@ def test_the_header_label_assertion_catches_a_shifted_label(
     assert "Risk Group: Mining" in row
 
 
-# --------------------------------------------------------------------------- #
 # Against the real document, when it is present
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.skipif(
@@ -218,12 +185,8 @@ def test_the_header_label_assertion_catches_a_shifted_label(
     reason="client material is not in the repo; run with data/sources populated",
 )
 def test_a_known_cell_of_a_real_asil_table(tmp_path: Path) -> None:
-    """The same contract, against the actual client document.
-
-    The fixture above reproduces this table's shape; this asserts the shape was
-    reproduced faithfully. Skipped in any checkout without the client files,
-    which is every checkout but this one — the documents are not in the repo.
-    """
+    """The same contract against the client document the fixture reproduces,
+    which checks the fixture is faithful to it."""
     passages = extract(REAL_DOCX, make_source(media_type=MediaType.DOCX))
     found = cells(passages)
     table = table_name(1, 5)
@@ -250,17 +213,9 @@ def test_the_fixture_matches_the_real_table_it_stands_for() -> None:
 def test_an_orphaned_numeric_block_does_not_crown_its_first_row(
     tmp_path: Path,
 ) -> None:
-    """Regression, from table 2 of ASIL_Jobs_of_the_Future.docx.
-
-    Every data column here is a measurement, so nothing repeats down a column
-    and the first row of a banner-orphaned block satisfies every structural test
-    for a header. It got crowned, and the rows below it read
-    ``Leadership: Presentation; 37.1%: 2.0%`` — anchors correct, labels drawn
-    from a data row.
-
-    What tells the two apart is kind: the real header is a label sitting over a
-    column of numbers; the impostor is a number sitting over more numbers.
-    """
+    """Regression, from table 2 of ASIL_Jobs_of_the_Future.docx (see
+    ``NUMERIC_BANNERED_TABLE``): the orphaned block's first row was crowned, and
+    the rows below it read ``Leadership: Presentation; 37.1%: 2.0%``."""
     path = write_docx_with_table(
         tmp_path / "numeric.docx",
         table=NUMERIC_BANNERED_TABLE,
@@ -283,12 +238,9 @@ def test_an_orphaned_numeric_block_does_not_crown_its_first_row(
 def test_a_genuinely_new_header_after_a_banner_is_still_honoured(
     tmp_path: Path,
 ) -> None:
-    """The other half: inheritance must not swallow a real second header.
-
-    Two stacked tables, the second with its own header, is the ASIL
-    "Salary Premiums" shape. Inheriting there captions an average salary as a
-    pay premium.
-    """
+    """Inheritance must not swallow a real second header: the ASIL "Salary
+    Premiums" shape, where inheriting captions an average salary as a pay
+    premium."""
     table = (
         ("Enterprise Skill", "Pay Premium", "Context"),
         ("Presentation", "$8,853", "Highest premium"),

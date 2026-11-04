@@ -1,49 +1,38 @@
 """Evidence extraction: one model call per claim, then verification of every quote.
 
-BUILD_SPEC.md section 4, ``extract_evidence``, and BACKEND_PLAN.md phase 5. The
-model is shown one claim and the passages retrieval found for it, and asked for
-structured findings. It may author only (phase 5, verbatim): the finding text, a
-type, a quoted span, the id of the passage it quoted, and nullable statistic,
-date, caveat and method fields. **It never authors a source, a citation or a
-page reference.** The anchor on each :class:`~updater.models.Evidence` comes
-from :func:`updater.extract.verify.verify_quote`, which finds the quote in the
-passage the model named and narrows that passage's anchor to it. A field the
-model adds beyond the list — a ``source``, a ``page`` — makes the finding
-malformed, and it is discarded.
+BACKEND_PLAN.md phase 5. The model sees one claim and its retrieved passages,
+and may author only the finding text, a type, a quoted span, the id of the
+passage quoted, and nullable statistic, date, caveat and method fields. **It
+never authors a source, a citation or a page reference**: each anchor comes from
+:func:`updater.extract.verify.verify_quote`, which finds the quote in the named
+passage and narrows that passage's anchor to it.
 
-What is discarded, and why each one is counted rather than dropped quietly:
+Every discarded finding is logged and returned in
+:attr:`ExtractionResult.discarded`, so the count reaches the reviewer:
 
 ``quote-not-found``
-    The quote is not in the passage it cites, after the exact and the
-    whitespace-flexible pass. A fabricated quote, a near miss, a quote from a
-    different passage than the one named.
+    The quote is not in the passage it names, exactly or with whitespace
+    relaxed.
 ``statistic-not-in-quote``
-    The statistic carries a number that its own verified quote does not. A
-    model that computes "a rise of 1.7 points" from two figures, or rounds
-    13.14% to 13.1%, has authored a number, and rule 2 says a number nobody
-    printed is a number nobody may cite.
+    The statistic has a number its own verified quote does not: one the model
+    computed, rounded or brought from elsewhere. A number nobody printed is a
+    number nobody may cite (rule 2).
 ``unknown-passage``
-    The passage id is not one of those supplied. The schema's enum makes this
-    impossible for a provider that honours it, so seeing it means one did not.
+    The passage id is not one supplied. The schema forbids this, so it means
+    the provider ignored the schema.
 ``malformed``
-    Missing or extra fields, a wrong type, an empty finding, a date that is not
-    ISO. The schema forbids all of these too.
+    Missing or extra fields (a ``source``, a ``page``), a wrong type, an empty
+    finding, a date that is not ISO.
 
-A discarded finding is logged and returned in :attr:`ExtractionResult.discarded`,
-so the count can reach the reviewer: "four findings, two discarded" and "two
-findings" are different statements about how much to trust a run.
+No passages means no call, and a result with ``model=None``: asking anyway
+would invite an answer from training data (rule 3). A reply that is not the
+requested JSON raises :class:`~updater.extract.model.ModelCallFailed` rather
+than returning an empty list, which would read as "the sources do not support
+this claim".
 
-Two outcomes are *not* an empty result. No passages means no call: there is
-nothing to extract from, which is the compare stage's ``cannot-verify``, and
-asking a model anyway would invite an answer from its training data (rule 3).
-And a reply that is not the requested JSON at all raises
-:class:`~updater.extract.model.ModelCallFailed`, because an empty evidence list
-would read as "the sources do not support this claim", which nobody found out.
-
-``Evidence.confidence`` is **not** the model's opinion, which phase 5 does not
-let it author. It records how the quote verified: :data:`EXACT_QUOTE_CONFIDENCE`
-for a character-for-character match, :data:`WHITESPACE_QUOTE_CONFIDENCE` when
-the whitespace had to be relaxed. Phase 6 owns the claim-level ``conf``.
+``Evidence.confidence`` records how the quote verified
+(:data:`EXACT_QUOTE_CONFIDENCE` or :data:`WHITESPACE_QUOTE_CONFIDENCE`), not the
+model's opinion. Phase 6 owns the claim-level ``conf``.
 """
 
 from __future__ import annotations
@@ -84,9 +73,8 @@ LOGGER = logging.getLogger(__name__)
 EXACT_QUOTE_CONFIDENCE = 1.0
 """The quote is in the passage character for character."""
 WHITESPACE_QUOTE_CONFIDENCE = 0.9
-"""The quote's words are in the passage in order, but its whitespace was not.
-The characters shown are the document's either way; this records that the
-model did not copy them exactly, which is worth a reviewer knowing."""
+"""The quote's words are in the passage in order, with different whitespace. The
+span shown is the document's characters either way."""
 
 
 class FindingType(StrEnum):
@@ -124,9 +112,8 @@ class ExtractedEvidence:
     def quote(self) -> str:
         """The supporting span, sliced from the passage at the evidence anchor.
 
-        Derived, never stored (DESIGN.md, 2026-08-20: no ``quote`` field on
-        ``Evidence``), so it cannot drift from the anchor that justifies it.
-        These are the document's characters, whatever the model typed.
+        Derived, never stored, so it cannot drift from the anchor that justifies
+        it. These are the document's characters, whatever the model typed.
         """
         offset = self.passage.anchor.char_start
         anchor = self.evidence.anchor
@@ -268,8 +255,12 @@ def extract_evidence(
     """Ask ``model`` for evidence about one claim, and keep what verifies.
 
     Takes the claim's text rather than a :class:`~updater.models.Claim`, which
-    needs an anchor into last year's report: a claim typed at the command line
-    has none, and minting one would be a citation pointing nowhere.
+    needs an anchor into last year's report that a claim typed at the command
+    line does not have.
+
+    Raises:
+        ModelCallFailed: the call failed, or the reply is not the requested JSON.
+        ValueError: two passages share an id.
     """
     by_id: dict[str, Passage] = {}
     for passage in passages:

@@ -1,35 +1,24 @@
-"""Chunking, within locator boundaries and never across them.
+"""Chunking within locator boundaries, never across them (BUILD_SPEC.md section 4).
 
-BUILD_SPEC.md section 4: *"~400-600 tokens with ~15% overlap. Chunk within
-locator boundaries, never across them. A chunk must not span two PDF pages, or
-its anchor is ambiguous. This is the rule that keeps citations honest."*
+A chunk spanning two locator units (two PDF pages, two table rows) has an
+ambiguous anchor, so its citation cannot be checked. A chunk therefore comes
+from exactly one parent :class:`~updater.models.Passage`: its text is a slice of
+the parent's text and its anchor narrows the parent's. Passages are never
+concatenated, and every chunk is also checked with
+:func:`updater.provenance.require_derives_within` before it is returned.
 
-The design follows from that sentence. A chunk is produced from exactly one
-parent :class:`~updater.models.Passage`, its text is a *slice* of the parent's
-text, and its anchor narrows the parent's anchor rather than being computed
-afresh. Two passages are never concatenated, at any point, for any reason —
-which is what makes the rule true by construction rather than by vigilance.
+Three properties hold for every chunk, and each has a test:
 
-Every chunk is then checked against
-:func:`updater.provenance.require_derives_within` before it is returned. That is
-belt and braces on purpose: the construction argument above is only as good as
-the code implementing it, and this is the failure that produces a draft full of
-citations that point at the wrong page while reading perfectly well.
-
-Three properties hold for every chunk this module emits, and each has a test:
-
-1. ``chunk.text`` is a verbatim slice of ``parent.text`` — no normalisation, no
-   re-joining, no whitespace collapsing. The extract stage verifies quoted spans
-   by plain string match, and that check is worthless if chunking rewrites text.
-2. ``chunk.anchor`` names the same locator unit as its parent, with a span
-   inside the parent's span.
+1. ``chunk.text`` is a verbatim slice of ``parent.text``, with no normalisation
+   or whitespace collapsing: the extract stage verifies quotes by string match.
+2. ``chunk.anchor`` names the parent's locator unit, with a span inside the
+   parent's span.
 3. Slicing the parent's text by the chunk's anchor offsets returns the chunk's
-   text. This is the property that makes a citation checkable by hand.
+   text, which is what makes a citation checkable by hand.
 
-A passage that already fits the budget is emitted as a single chunk covering its
-whole unit rather than passed through unchanged: downstream everything is a
-chunk, chunk ids are derived (``{parent id}#0``), and the token count becomes a
-real one. Nothing is dropped and nothing is merged.
+A passage that already fits the budget becomes one chunk covering its whole
+unit (id ``{parent id}#0``, with a real token count). Nothing is dropped or
+merged.
 """
 
 from __future__ import annotations
@@ -56,23 +45,19 @@ __all__ = [
 ]
 
 SEPARATORS: tuple[str, ...] = ("\n\n", "\n", ". ", "; ", "? ", "! ", ", ", " ")
-"""Where text may be cut, in descending order of how little the cut costs.
-
-Paragraph, then line, then sentence, then clause, then word. ``"; "`` earns its
-place from the tabular serialisation — a row reads
-``Sheet. Region: North East; Starts 2023: 12340; ...``, so the semicolon is that
-format's sentence boundary and cutting there keeps a header with its value.
-"""
+"""Where text may be cut, cheapest cut first: paragraph, line, sentence, clause,
+word. ``"; "`` is the tabular serialisation's field boundary
+(``Sheet. Region: North East; Starts 2023: 12340``), so cutting there keeps a
+header with its value."""
 
 
 @dataclass(frozen=True, slots=True)
 class ChunkConfig:
     """The chunk budget, in word pieces of the embedding model's tokenizer.
 
-    ``max_tokens`` is a hard ceiling; ``min_tokens`` is an aspiration, because a
-    locator unit smaller than it cannot be padded — the only text that could pad
-    it belongs to a different page or a different row, and borrowing it is the
-    one thing this module may not do. A short unit yields a short chunk.
+    ``max_tokens`` is a hard ceiling; ``min_tokens`` is not a floor. A locator
+    unit smaller than it yields a short chunk, because the only text that could
+    pad it belongs to another page or row.
     """
 
     max_tokens: int = 600
@@ -134,9 +119,8 @@ def _atoms(
 ) -> list[tuple[int, int]]:
     """Break a span into pieces that each fit the budget, cutting as coarsely as it can.
 
-    Falls back to a proportional character split only when no separator is left
-    — a single 700-token "word" is not real prose, and the quality gate has
-    already rejected the encoding failures that produce one.
+    Falls back to a proportional character split only when no separator is left:
+    a 700-token "word" is an encoding failure the ingest quality gate rejects.
     """
     if count.count(text[start:end]) <= budget:
         return [(start, end)]
@@ -176,18 +160,9 @@ def _trim(text: str, start: int, end: int) -> tuple[int, int]:
 def _atom_budget(config: ChunkConfig) -> int:
     """How finely to break the text before packing it into chunks.
 
-    Not simply ``max_tokens``. Atoms are the units both the chunk budget *and*
-    the overlap are expressed in, so an atom larger than the overlap can never
-    be carried into the next chunk — and the overlap silently becomes zero.
-
-    That was a real defect, and it failed in the quiet direction: chunks came out
-    the right size, tiled the text correctly, and had no overlap at all, so a
-    sentence sitting on a boundary appeared whole in neither chunk. The tests
-    measure the gap between consecutive chunks for exactly this reason.
-
-    Cutting no coarser than the overlap keeps every cut on a real boundary that
-    the separator list found — sentences, at the default settings — while
-    guaranteeing the overlap can actually be filled.
+    No coarser than the overlap, not simply ``max_tokens``: an atom larger than
+    the overlap can never be carried into the next chunk, so the overlap would
+    silently become zero while the chunks still came out the right size.
     """
     if config.overlap_tokens <= 0:
         return config.max_tokens
@@ -200,8 +175,7 @@ def _overlap_start(
     """Where the next chunk begins so it repeats ~``overlap_tokens`` of this one.
 
     Never returns ``first``: the next chunk must start strictly later than the
-    one just emitted, or packing makes no progress and loops forever. That is
-    the whole reason this is a named function with a test of its own.
+    one just emitted, or packing loops forever.
     """
     if overlap_tokens <= 0:
         return stop
@@ -270,16 +244,11 @@ def _rebalance_tail(
 ) -> list[tuple[int, int]]:
     """Grow a stub final chunk backwards until it reaches ``min_tokens``.
 
-    Greedy packing leaves whatever is left over in the last chunk, which can be
-    a handful of tokens. A stub is not wrong — its anchor is still exact — but it
-    embeds badly: a 20-token fragment retrieves on almost nothing, so the tail of
-    every long page becomes quietly unfindable, which reads downstream as an
-    absence of evidence.
-
-    Extending backwards only ever adds *more overlap* with the previous chunk,
-    which is text from the same locator unit, so provenance is unaffected. The
-    guard is that the tail may not swallow the previous chunk's start: two chunks
-    covering the same span are one chunk and a duplicate.
+    Greedy packing can leave a few tokens in the last chunk, which embeds badly,
+    so the tail of a long unit would be quietly unfindable. Growing backwards
+    only adds overlap with the previous chunk, from the same locator unit. The
+    tail may not reach the previous chunk's start, or the two would cover one
+    span.
     """
     if len(packed) < 2:
         return packed
@@ -304,14 +273,11 @@ def chunk_passage(
     """Split one passage into chunks that stay inside its locator unit.
 
     The parent's locator is copied onto every chunk and only the character span
-    narrows, so a chunk of page 7 is anchored to page 7 and to nothing else.
-    Each chunk is checked with
-    :func:`~updater.provenance.require_derives_within` before it is returned.
+    narrows, so a chunk of page 7 is anchored to page 7 and nothing else.
 
     Raises:
-        ProvenanceError: a chunk escaped its parent's span. That is a bug in
-            this module, never a data problem — it means a citation would have
-            been wrong.
+        ProvenanceError: a chunk escaped its parent's span. A bug in this
+            module, never a data problem.
     """
     counter = counter or default_token_counter()
     parent = passage.anchor

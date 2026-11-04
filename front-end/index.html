@@ -1478,11 +1478,8 @@
 </section>
 
 <script>
-  // The approved dashboard prototype (docs/frontend/asil-dashboard-DRAFT-FINAL.html)
-  // with its hardcoded data replaced by the backend. `uv run updater serve` serves this
-  // page at / and the API at /api, from one origin. Response fields are the prototype's
-  // own names (BACKEND_PLAN.md, "API contract"), so each screen renders as the prototype
-  // did, from an API response instead of a literal array.
+  // Response fields are the prototype's own names (BACKEND_PLAN.md, "API contract"), so
+  // each screen renders an API response as the prototype rendered its literal array.
   //
   // Still demo-only, because the API has nothing behind them yet: profile, notification
   // preferences, appearance, security, integrations, team, the test-suite panel, the
@@ -1538,7 +1535,7 @@
     return out.innerHTML;
   }
 
-  // ================= The research update this page is working on =================
+  // ================= Current run =================
   // The API has no endpoint listing runs, so the page remembers the run it started, per
   // browser. ?run=<id> in the address opens a particular one.
   const RUN_KEY = 'asil.runId';
@@ -2071,8 +2068,8 @@
       .then(entries => { auditEntries = entries; buildPublish(); showToast('Signed off and recorded in the audit log. Nothing is published automatically.', 5000); })
       .catch(err => { buildPublish(); fail(err); });
   });
-  // Export menu: the audit log works at any time; the report formats after sign-off
-  // (the API says so, and builds them in phase 8).
+  // Export menu: the audit log works at any time; the report formats after sign-off,
+  // once the API builds them (phase 8).
   const EXPORT_FORMAT = { 'PDF': 'pdf', 'Word': 'docx', 'Audit log CSV': 'audit_csv', 'Newsletter': 'newsletter' };
   async function exportAs(format){
     if (!runId) return showToast('Run a scan first: exports belong to a research update');

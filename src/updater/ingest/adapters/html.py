@@ -1,23 +1,17 @@
 """HTML extraction with boilerplate stripped (BUILD_SPEC.md section 3).
 
-trafilatura decides what is content and what is navigation, and returns the
-result as a flat XML document::
+trafilatura decides what is content and returns it as flat XML::
 
     <doc><main><head rend="h1">Title</head><p>Body</p></main></doc>
 
 One passage per block element under ``<main>``, anchored by
 :class:`~updater.models.DomLocator`.
 
-Two things about that locator are worth stating plainly, because the field names
-promise more than the format can deliver:
+*The heading trail is the durable half of the citation*: it still reads
+correctly after the publisher restyles the page. Cite it to humans.
 
-*The heading trail is the durable half of the citation.* It still reads
-correctly after the publisher restyles the page, which is the normal fate of a
-web source between two annual runs. Cite it to humans.
-
-*The css_path is a path into trafilatura's extracted tree, not a selector that
-resolves against the live page.* The original DOM does not survive boilerplate
-removal, so there is nothing honest to put there instead. Treat it as a stable
+``css_path`` points into trafilatura's extracted tree, not the live page: the
+original DOM does not survive boilerplate removal. Treat it as a stable
 within-document ordinal.
 """
 
@@ -127,9 +121,8 @@ def _element_text(element: Any) -> str:
 def _push_heading(trail: list[str], element: Any, text: str) -> None:
     """Update the running heading trail for a ``<head>`` element.
 
-    A heading includes itself in its own trail, so a passage and the heading
-    above it read the same way in a citation. A ``<head>`` with no recognisable
-    ``rend`` is treated as one level deeper than wherever we currently are.
+    A heading includes itself in its own trail. A ``<head>`` with no
+    recognisable ``rend`` is treated as one level deeper than the current one.
     """
     level = _HEADING_LEVELS.get(element.get("rend") or "", len(trail) + 1)
     del trail[level - 1 :]

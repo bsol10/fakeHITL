@@ -1,12 +1,9 @@
 """PDF extraction over the text layer (BUILD_SPEC.md section 3).
 
-One passage per page, anchored by :class:`~updater.models.PageLocator`. The page
-is the natural locator unit: it is what a reviewer can turn to, and it is the
-boundary the chunking stage must not cross.
-
-Blank pages produce no passage — a page with no text has nothing citable on it.
-A document that is *mostly* blank is a different thing entirely, and is caught
-below as a scanned PDF rather than passed on as a handful of stray characters.
+One passage per page, anchored by :class:`~updater.models.PageLocator`: the page
+is what a reviewer can turn to, and the boundary chunking must not cross. Blank
+pages produce no passage and are not renumbered around. A document that is
+*mostly* blank raises :class:`~updater.ingest.errors.NeedsOCR`.
 """
 
 from __future__ import annotations

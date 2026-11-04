@@ -1,9 +1,9 @@
-"""The HTTP API the approved dashboard prototype runs on.
+"""The HTTP API the approved dashboard runs on.
 
-BACKEND_PLAN.md is the build order and the prototype in
-``docs/frontend/asil-dashboard-DRAFT-FINAL.html`` is the contract. In phase 0
-every endpoint is backed by fixtures extracted from that prototype; later phases
-replace them with the real pipeline one endpoint at a time.
+The prototype in ``docs/frontend/asil-dashboard-DRAFT-FINAL.html`` is the
+contract. Its content is served from fixtures extracted from it, and what people
+do with that content is kept in :mod:`updater.state`; later phases replace the
+fixtures with the real pipeline.
 
 Needs the ``api`` extra: ``uv sync --extra api``. Pydantic is confined to this
 package, at the boundary; nothing outside it imports from here.

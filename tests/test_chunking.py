@@ -1,22 +1,13 @@
-"""Chunking: the stage the provenance invariant was written for.
+"""Chunking, where a chunk's text and its anchor can silently disagree.
 
-The thing that goes wrong here is not a crash. It is a chunk whose text and
-whose anchor disagree — text from page 8 carrying a citation to page 7 — and it
-produces a draft that reads perfectly and cites the wrong place. No amount of
-"the chunk contains what I expect" testing catches it, because the leaked text
-is *also* in the document.
+Text from page 8 carrying a citation to page 7 passes any "the chunk contains
+what I expect" test, because the leaked text is *also* in the document. So the
+assertions here are about **absence**: every region of the fixture carries a
+unique marker, and each chunk must hold no marker from outside the span its
+anchor claims. The two mutant tests near the end prove that check has teeth.
 
-So the assertions here are about **absence**. Every region of the fixture
-carries a unique marker, and each chunk is asked to prove it holds no marker
-from outside the span its anchor claims. Two mutants at the bottom of the file
-prove that check has teeth: one smears neighbouring text into a chunk while
-leaving the anchor alone, the other shifts the anchor while leaving the text
-alone. Both are invisible to a positive containment test, and the PDF page tests
-learned the same lesson the same way.
-
-Most tests here use a whitespace word counter rather than the model's
-tokenizer. Boundaries are what is under test, not tokenization, and a failure
-message reading "chunk has 7 words" can be checked by eye.
+Most tests count whitespace words rather than word pieces: boundaries are
+under test here, not tokenization.
 """
 
 from __future__ import annotations
@@ -56,11 +47,10 @@ def markers_in(text: str) -> frozenset[str]:
 
 
 def assert_holds_only_its_own_markers(parent: Passage, chunk: Passage) -> None:
-    """The absence assertion.
+    """Every marker the chunk's anchor covers is in its text, and no other is.
 
-    Every marker the chunk's anchor covers must be in its text, and no marker it
-    does not cover may be. The second half is the one that matters: it is what a
-    chunker that quietly borrows a neighbouring sentence fails.
+    The second half is the one a chunker that borrows a neighbouring sentence
+    fails.
     """
     offset = parent.anchor.char_start
     span = parent.text[
@@ -79,17 +69,12 @@ def assert_holds_only_its_own_markers(parent: Passage, chunk: Passage) -> None:
     )
 
 
-# --------------------------------------------------------------------------- #
 # The properties every chunk has
-# --------------------------------------------------------------------------- #
 
 
 def test_a_passage_within_budget_becomes_one_chunk_over_its_whole_unit() -> None:
-    """Nothing is split unnecessarily, and the single chunk covers the unit.
-
-    This is what makes the inspector's "whole unit" line meaningful: the first
-    thing that prints PARTIAL is a chunk that genuinely was split.
-    """
+    """The inspector's "whole unit" line relies on this: the first thing that
+    prints PARTIAL is a chunk that genuinely was split."""
     passage = make_passage("Sustained destinations rose to 68% of the cohort.")
 
     chunks = chunk_passage(passage, counter=WordCounter(), config=SMALL)
@@ -103,9 +88,8 @@ def test_a_passage_within_budget_becomes_one_chunk_over_its_whole_unit() -> None
 
 
 def test_every_chunk_is_a_verbatim_slice_of_its_parent() -> None:
-    """No normalisation, no re-joining. The extract stage verifies quoted spans
-    by plain string match against this text; rewriting it here would make that
-    check meaningless."""
+    """No normalisation: the extract stage verifies quotes by plain string match
+    against this text."""
     passage = make_passage(sentinel_text())
 
     for chunk in chunk_passage(passage, counter=WordCounter(), config=SMALL):
@@ -130,8 +114,6 @@ def test_every_chunk_derives_within_its_parent() -> None:
 
 
 def test_chunks_keep_the_parents_locator_exactly() -> None:
-    """A chunk of page 7 is anchored to page 7 and to nothing else. This is the
-    rule BUILD_SPEC.md section 4 states, at the level the type system cannot."""
     passage = make_passage(sentinel_text(), locator=PageLocator(page=7))
 
     for chunk in chunk_passage(passage, counter=WordCounter(), config=SMALL):
@@ -169,8 +151,8 @@ def test_no_chunk_exceeds_the_token_budget() -> None:
 
 
 def test_the_chunks_cover_the_whole_passage() -> None:
-    """Nothing is dropped. A silently missing tail is an absence of evidence
-    downstream, which the compare stage reads as a finding about the world."""
+    """A missing tail is an absence of evidence downstream, which the compare
+    stage would read as a finding."""
     passage = make_passage(sentinel_text())
 
     chunks = chunk_passage(passage, counter=WordCounter(), config=SMALL)
@@ -216,9 +198,8 @@ def test_chunk_ids_are_derived_and_unique() -> None:
 
 
 def test_a_stub_tail_is_grown_backwards_rather_than_left_tiny() -> None:
-    """Greedy packing leaves the remainder in the last chunk, which can be a
-    handful of words. A stub embeds badly, so the tail of every long page would
-    become quietly unfindable."""
+    """Greedy packing can leave a handful of words in the last chunk, and a stub
+    embeds badly."""
     counter = WordCounter()
     config = ChunkConfig(max_tokens=40, min_tokens=30, overlap_ratio=0.15)
     passage = make_passage(sentinel_text(count=11, filler_words=12))
@@ -235,9 +216,8 @@ def test_whitespace_only_passages_produce_no_chunks() -> None:
 
 
 def test_chunking_a_chunk_stays_inside_the_original_unit() -> None:
-    """Offsets are locator-relative, so a chunk of a chunk has to add its
-    parent's start rather than restart from zero. If that arithmetic were wrong
-    the citation would point at the top of the page instead of the middle."""
+    """Offsets are locator-relative, so a chunk of a chunk adds its parent's
+    start rather than restarting from zero."""
     passage = make_passage(sentinel_text())
     first_pass = chunk_passage(passage, counter=WordCounter(), config=SMALL)
     middle = first_pass[len(first_pass) // 2]
@@ -273,16 +253,12 @@ def test_chunk_passages_preserves_order_across_passages() -> None:
     ]
 
 
-# --------------------------------------------------------------------------- #
 # The guard, and the mutants that prove the assertions have teeth
-# --------------------------------------------------------------------------- #
 
 
 def test_a_chunk_escaping_its_parent_raises_rather_than_being_returned() -> None:
-    """The parent here claims to cover only its first 20 characters, so any
-    chunk beyond that escapes it. A real chunker cannot produce this, which is
-    exactly why the guard has to be tested with a rigged parent — the check must
-    fire before a wrong citation is returned, not after somebody reads it."""
+    """The parent claims only its first 20 characters, so any chunk beyond them
+    escapes it. A real chunker cannot produce this, hence the rigged parent."""
     text = sentinel_text()
     passage = make_passage(text, char_end=20)
 
@@ -291,11 +267,8 @@ def test_a_chunk_escaping_its_parent_raises_rather_than_being_returned() -> None
 
 
 def test_the_absence_assertion_catches_a_chunk_that_smears_its_neighbour() -> None:
-    """Mutant 1: correct anchor, text borrowed from beyond it.
-
-    This is the failure that produces a plausible sentence with a wrong
-    citation. A positive containment test passes it happily.
-    """
+    """Mutant 1: correct anchor, text borrowed from beyond it. A positive
+    containment test passes this."""
     passage = make_passage(sentinel_text())
     chunk = chunk_passage(passage, counter=WordCounter(), config=SMALL)[0]
     end = chunk.anchor.char_end
@@ -306,11 +279,8 @@ def test_the_absence_assertion_catches_a_chunk_that_smears_its_neighbour() -> No
 
 
 def test_the_slice_assertion_catches_an_anchor_shifted_off_its_text() -> None:
-    """Mutant 2: correct text, anchor moved.
-
-    The mirror image of mutant 1, and the reason both assertions exist: this one
-    keeps every marker the chunk should have and still cites the wrong offsets.
-    """
+    """Mutant 2: correct text, anchor moved. Every expected marker is still
+    present, which is why the slice assertion exists beside the absence one."""
     passage = make_passage(sentinel_text())
     chunk = chunk_passage(passage, counter=WordCounter(), config=SMALL)[1]
     shifted = replace(
@@ -328,8 +298,7 @@ def test_the_slice_assertion_catches_an_anchor_shifted_off_its_text() -> None:
 
 def test_overlap_start_always_advances() -> None:
     """The packing loop terminates only because the next chunk starts strictly
-    later than the one just emitted. An off-by-one here is an infinite loop, not
-    a wrong answer, so it gets its own test."""
+    later than the one just emitted: an off-by-one here is an infinite loop."""
     sizes = [1] * 20
 
     for first in range(0, 19):
@@ -338,9 +307,7 @@ def test_overlap_start_always_advances() -> None:
             assert first < start <= stop
 
 
-# --------------------------------------------------------------------------- #
-# The real tokenizer — the budget is in the embedding model's units
-# --------------------------------------------------------------------------- #
+# The real tokenizer: the budget is in the embedding model's units
 
 
 def test_real_word_piece_counts_respect_the_budget() -> None:

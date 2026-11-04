@@ -1,12 +1,10 @@
 """The HTTP API against the prototype's contract, and the policies it enforces.
 
-BACKEND_PLAN.md phase 0. The fixtures are the prototype's own data, so "returns
-the prototype's shapes" is checked by comparing responses to them directly: a
-renamed field, a dropped field or a reordered one fails here before it reaches
-the frontend.
+The fixtures are the prototype's own data, so responses are compared to them
+directly: a renamed, dropped or reordered field fails here.
 
-These tests are the acceptance test for phase 1, which must keep them passing
-*unchanged* while it swaps the in-memory state for SQLite.
+These are the acceptance tests for the API's state: keep them passing
+*unchanged* when the state behind the API changes.
 """
 
 from __future__ import annotations
@@ -46,7 +44,7 @@ def source_by_status(status: str) -> dict[str, Any]:
     return next(s for s in load("sources.json") if s["status"] == status)
 
 
-# --- shapes ----------------------------------------------------------------
+# Shapes
 
 
 @pytest.mark.parametrize(
@@ -106,7 +104,7 @@ def test_every_claim_carries_a_rationale(client: TestClient) -> None:
         assert claim["note"].strip(), claim["id"]
 
 
-# --- scan progress ---------------------------------------------------------
+# Scan progress
 
 
 def test_a_run_starts_on_its_first_source_and_returns_immediately(
@@ -148,7 +146,7 @@ def test_run_ids_count_up_within_a_day(client: TestClient) -> None:
     assert start_run(client)["run_id"] == "r_2026_09_16_02"
 
 
-# --- rule 3: only approved sources are scanned -----------------------------
+# Rule 3: only approved sources are scanned
 
 
 @pytest.mark.parametrize("status", ["pending", "paused", "url_changed"])
@@ -206,7 +204,7 @@ def test_an_unknown_run_is_not_found(client: TestClient, path: str) -> None:
     assert "r_nope" in response.json()["detail"]
 
 
-# --- serving ---------------------------------------------------------------
+# Serving
 
 
 @pytest.mark.parametrize(

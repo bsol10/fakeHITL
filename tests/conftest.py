@@ -1,13 +1,9 @@
-"""Fixture builders for the ingestion tests.
+"""Shared fixtures and fixture builders.
 
-Every fixture file is generated at test time rather than committed as a binary
-blob. Generated fixtures stay readable in the diff, and there is nothing stale
-to re-check when a library changes what it writes.
+Fixture files are generated at test time, never committed as binary blobs.
 
-The ``*_locators`` helpers exist because the locator is the thing BUILD_SPEC.md
-section 3 says is most likely to silently break: they assert the variant before
-returning it, so a test that reads ``.page`` cannot accidentally pass against a
-``BlockLocator`` that happens to have one.
+The ``*_locators`` helpers assert the locator variant before returning it, so a
+test that reads ``.page`` cannot pass against the wrong kind of locator.
 """
 
 from __future__ import annotations
@@ -42,10 +38,6 @@ from updater.models import (
 )
 from updater.retrieve.store import DB_PATH_ENV_VAR
 
-# --------------------------------------------------------------------------- #
-# The real database is out of bounds
-# --------------------------------------------------------------------------- #
-
 
 @pytest.fixture(autouse=True)
 def _no_test_touches_the_real_database(
@@ -53,17 +45,10 @@ def _no_test_touches_the_real_database(
 ) -> None:
     """Point ``UPDATER_DB_PATH`` at a temporary file for every test.
 
-    A command given no ``--db`` opens the configured database, and since phase 1
-    that file holds the audit log as well as the index. A test run must never
-    write to a developer's real one, and an append-only log cannot be tidied up
-    afterwards.
+    A command given no ``--db`` opens the configured database, which holds the
+    append-only audit log, and a test run cannot tidy that up afterwards.
     """
     monkeypatch.setenv(DB_PATH_ENV_VAR, str(tmp_path / "updater.sqlite3"))
-
-
-# --------------------------------------------------------------------------- #
-# Sources
-# --------------------------------------------------------------------------- #
 
 
 def make_source(
@@ -84,9 +69,7 @@ def make_source(
     )
 
 
-# --------------------------------------------------------------------------- #
 # Fixture content
-# --------------------------------------------------------------------------- #
 
 PAGE_ONE = [
     "Post-16 destinations, 2025",
@@ -143,11 +126,9 @@ DOCX_BLOCKS: tuple[tuple[str, str], ...] = (
 )
 
 BANNERED_TABLE: tuple[tuple[str, ...], ...] = (
-    # The shape of the automation-risk table in ASIL_Jobs_of_the_Future.docx:
-    # one header at the top, then banner rows subdividing the data under it.
-    # The banners split the header away from its rows, so without inheritance
-    # the first data row is crowned and captions the rest
-    # "Industry: Agriculture, Forestry & Fishing".
+    # Modelled on the automation-risk table in ASIL_Jobs_of_the_Future.docx: one
+    # header, then banner rows subdividing the data. The banners cut the header
+    # off from its rows, so without inheritance the first data row is crowned.
     ("Industry", "Risk Group", "Est. Automation Risk", "Role Type"),
     ("Higher automation risk industries (9 industries)",),
     ("Manufacturing", "Higher risk", "~74%", "Routine physical production"),
@@ -157,14 +138,13 @@ BANNERED_TABLE: tuple[tuple[str, ...], ...] = (
     ("Health Care & Social Assistance", "Lower risk", "~14%", "Human care"),
     ("Education & Training", "Lower risk", "~8%", "Teaching"),
 )
-"""One header, banner rows below it subdividing the data."""
 
 NUMERIC_BANNERED_TABLE: tuple[tuple[str, ...], ...] = (
     # Table 2 of ASIL_Jobs_of_the_Future.docx. Same banner shape as
-    # BANNERED_TABLE, but every data column is a measurement, so no value
-    # repeats down a column and the first row of an orphaned block passes every
-    # structural test for a header. It is told apart from the real header only
-    # by kind: "Higher Risk Industries (avg %)" is a label, "54.4%" is not.
+    # BANNERED_TABLE, but every data column is a measurement, so the first row
+    # of an orphaned block passes every structural test for a header. Only kind
+    # tells them apart: "Higher Risk Industries (avg %)" is a label, "54.4%" is
+    # not.
     ("Enterprise Skill", "Higher Risk Industries (avg %)", "Difference"),
     ("Skills significantly more demanded in lower-risk industries",),
     ("Communication", "54.4%", "+31.0pp"),
@@ -173,12 +153,9 @@ NUMERIC_BANNERED_TABLE: tuple[tuple[str, ...], ...] = (
     ("Leadership", "37.1%", "+3.3pp"),
     ("Presentation", "2.0%", "-2.0pp"),
 )
-"""A banner-split table whose data columns are all measurements."""
 
 
-# --------------------------------------------------------------------------- #
 # Fixture writers
-# --------------------------------------------------------------------------- #
 
 
 def write_pdf(path: Path, pages: Sequence[Sequence[str]]) -> Path:
@@ -195,11 +172,7 @@ def write_pdf(path: Path, pages: Sequence[Sequence[str]]) -> Path:
 
 
 def write_scanned_pdf(path: Path, page_count: int = 3) -> Path:
-    """Write a PDF whose text layer is only page numbers.
-
-    This is what a scan looks like to pypdf: not empty, just far too thin to be
-    a real document.
-    """
+    """Write a PDF whose text layer is only page numbers, as a scan looks to pypdf."""
     return write_pdf(path, [[str(number)] for number in range(1, page_count + 1)])
 
 
@@ -264,8 +237,7 @@ def write_xlsx(
 
     A row is a sequence of cell values; ``None`` leaves the cell empty and an
     empty sequence leaves the whole row blank. ``merges`` and ``percent_cells``
-    take A1 ranges and coordinates per sheet, because merged cells and per-cent
-    formats are two of the things real workbooks do that break naive readers.
+    take A1 ranges and coordinates per sheet.
     """
     workbook = Workbook()
     default_sheet = workbook.active
@@ -310,13 +282,11 @@ def write_csv(
     return path
 
 
-# --------------------------------------------------------------------------- #
 # Tabular fixture content
-# --------------------------------------------------------------------------- #
 
 STARTS_SHEET: tuple[tuple[object, ...], ...] = (
-    # Row 1: a title merged across the table's full width. Merged so it is as
-    # wide as the header and would win a naive "widest row" search.
+    # Row 1: a title merged to the table's full width, so a naive "widest row"
+    # header search would pick it.
     ("Table 3: Apprenticeship starts by region", None, None, None),
     (),  # row 2 blank
     ("Source: Department for Education, published March 2025", None, None, None),
@@ -342,24 +312,20 @@ GAPS_SHEET: tuple[tuple[object, ...], ...] = (
 """A second sheet, header at row 1, to prove sheet names are not shared."""
 
 MATRIX_SHEET: tuple[tuple[object, ...], ...] = (
-    # The shape of any comparison table, and the one that defeated a width-based
-    # header search on real ASIL data: the header's top-left corner is empty,
-    # because column A holds row labels and has nothing to be called. The header
-    # is therefore *narrower* than every row under it, but ends at the same
-    # column. Taken from FYA_vs_ASIL_Comparative_Analysis.xlsx, sheet "Overview".
+    # From FYA_vs_ASIL_Comparative_Analysis.xlsx, sheet "Overview". Column A
+    # holds row labels, so the header's corner cell is empty: the header is
+    # narrower than every row under it, but ends at the same column.
     ("Study Comparison",),
     (None, "FYA New Basics (2016)", "ASIL Research (2026)"),
     ("Data source", "4.2M job ads", "950 job ads"),
     ("Reference period", "2012 to 2015", "2025 to 2026"),
     ("Industry coverage", "All 19 ANZSIC divisions", "All 19 ANZSIC divisions"),
 )
-"""A header with an empty corner cell, above rows that are one column wider."""
 
 TWO_TABLE_SHEET: tuple[tuple[object, ...], ...] = (
-    # Two tables under one tab, separated by a banner row. Real: the
-    # "Salary Premiums" sheet of the ASIL comparative workbook. Applying the
-    # first header to the second table cites $109,860 — an average salary — as
-    # a "Pay Premium (AUD/year)", which is wrong and reads perfectly well.
+    # From the "Salary Premiums" sheet of the ASIL comparative workbook: two
+    # tables under one tab, each with its own header. Applying the first header
+    # to the second table cites $109,860, an average salary, as a pay premium.
     ("FYA (2016): Pay Premium for Enterprise Skills",),
     ("Enterprise Skill", "Pay Premium", "Context"),
     ("Presentation", "$8,853", "Highest premium skill"),
@@ -370,7 +336,6 @@ TWO_TABLE_SHEET: tuple[tuple[object, ...], ...] = (
     ("Professional, Scientific & Technical", "$109,860", "$160,000"),
     ("Construction", "$90,000", "$150,000"),
 )
-"""Two tables, two headers, one banner row between them."""
 
 MERGED_SHEET: tuple[tuple[object, ...], ...] = (
     ("Provider type", "Year", "Learners"),
@@ -387,9 +352,9 @@ SENTINEL_MARKERS = ("ALPHAPAGE", "BRAVOPAGE", "CHARLIEPAGE")
 def write_sentinel_pdf(path: Path) -> Path:
     """A three-page PDF whose pages differ only by one unique marker each.
 
-    Identical prose everywhere else, so a test can assert that a page's passage
-    contains its own marker and *neither* of the others. Positive containment
-    alone would not catch a reader that leaked adjacent pages into the text.
+    A test can then assert that a page's passage contains its own marker and
+    *neither* of the others: positive containment alone would not catch a reader
+    that leaked adjacent pages into the text.
     """
     pages = [
         [
@@ -402,9 +367,7 @@ def write_sentinel_pdf(path: Path) -> Path:
     return write_pdf(path, pages)
 
 
-# --------------------------------------------------------------------------- #
 # Locator assertions
-# --------------------------------------------------------------------------- #
 
 
 def page_locators(passages: Sequence[Passage]) -> list[PageLocator]:
@@ -455,22 +418,16 @@ def cell_locators(passages: Sequence[Passage]) -> list[CellLocator]:
     return locators
 
 
-# --------------------------------------------------------------------------- #
 # Chunking, embedding and retrieval helpers
-# --------------------------------------------------------------------------- #
 
 
 @dataclass(frozen=True, slots=True)
 class WordCounter:
     """Counts whitespace-delimited words.
 
-    A stand-in for the real word-piece counter in the tests that are about
-    *boundaries* rather than about tokenization. Deterministic, instant, and
-    legible in a failure message — "chunk has 7 words" can be checked by eye,
-    whereas "chunk has 7 word pieces" cannot.
-
-    Tests that are genuinely about the model's units use the real counter and
-    say so.
+    Stands in for the word-piece counter in tests about *boundaries* rather than
+    tokenization: "chunk has 7 words" can be checked by eye in a failure
+    message, "chunk has 7 word pieces" cannot.
     """
 
     def count(self, text: str) -> int:
@@ -478,13 +435,10 @@ class WordCounter:
 
 
 class StubEmbedder:
-    """Deterministic vectors, no model, no torch.
+    """Deterministic unit vectors hashed from the text, with no model or torch.
 
-    Hashes the text into a small number of dimensions. Two identical strings
-    embed identically and different strings almost always differ, which is all
-    the store and the retriever need to be tested against. Vectors are
-    normalised because the index stores unit vectors and cosine distance assumes
-    it.
+    Identical strings embed identically and different strings almost always
+    differ, which is all the store and the retriever need.
     """
 
     dimensions = 8
@@ -505,9 +459,8 @@ MARKER_COUNT = 40
 def marker(index: int) -> str:
     """A unique token that appears exactly once in :func:`sentinel_text`.
 
-    Fixed width so no marker is a substring of another — otherwise an absence
-    assertion for MARKER1 would pass merely because MARKER10 is present, which
-    is the sort of quietly toothless check this suite exists to avoid.
+    Fixed width so no marker is a substring of another: otherwise MARKER1 would
+    be found inside MARKER10.
     """
     return f"MARKER{index:02d}"
 
@@ -515,10 +468,9 @@ def marker(index: int) -> str:
 def sentinel_text(count: int = MARKER_COUNT, filler_words: int = 12) -> str:
     """Text whose every region is identifiable by a unique marker.
 
-    Positive containment alone would pass a chunker that leaked adjacent text
-    into a chunk — the same lesson the PDF page tests learned. With one marker
-    per region, a chunk can be asked to prove the *absence* of everything
-    outside its own span.
+    A chunk can then be asked to prove the *absence* of everything outside its
+    own span; positive containment alone would pass a chunker that leaked
+    adjacent text into a chunk.
     """
     filler = " ".join(["destinations"] * filler_words)
     return "\n\n".join(f"{marker(index)} {filler}." for index in range(count))
@@ -551,12 +503,10 @@ def make_passage(
 
 
 def assert_chunk_slices_back(parent: Passage, chunk: Passage) -> None:
-    """The property that makes a citation checkable by hand.
+    """Slicing the parent's text with the chunk's anchor offsets returns the chunk.
 
-    Slicing the parent's text with the chunk's anchor offsets must return the
-    chunk's text. If it does not, the chunk's citation points at text the chunk
-    does not contain — which is the failure that reads perfectly well in a draft
-    and is wrong.
+    If it does not, the chunk's citation points at text the chunk does not
+    contain.
     """
     offset = parent.anchor.char_start
     start = chunk.anchor.char_start - offset
@@ -590,9 +540,7 @@ def registry_entry(**overrides: object) -> dict[str, object]:
     return entry
 
 
-# --------------------------------------------------------------------------- #
 # Evidence extraction
-# --------------------------------------------------------------------------- #
 
 SCRIPTED_ANSWERED_BY = "scripted-model-2026-10-08"
 """What the scripted model's "API" reports, deliberately not the id it was

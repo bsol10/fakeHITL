@@ -1,16 +1,13 @@
 """The FastAPI application: routes, error mapping, CORS and the dashboard.
 
-There is no authentication, because BUILD_SPEC.md section 7 rules it out of the
-first version, so ``updater serve`` binds to localhost by default. CORS admits
-localhost and 127.0.0.1 on any port, which is where a frontend dev server runs.
-A page opened straight from disk sends ``Origin: null`` and is not admitted;
-admitting ``null`` would admit every sandboxed page on the machine. Serve the
-frontend over http instead.
+There is no authentication (BUILD_SPEC.md section 7), so ``updater serve`` binds
+to localhost by default. CORS admits localhost and 127.0.0.1 on any port, for a
+frontend dev server. A page opened from disk sends ``Origin: null`` and is not
+admitted: admitting ``null`` would admit every sandboxed page on the machine.
 
-Given a ``frontend`` directory, the app serves it at ``/`` beside the API, so
-the dashboard and the API share one origin and need no CORS at all. The API's
-routes are registered first, so ``/api/...``, ``/docs`` and ``/openapi.json``
-always win over a file of the same name.
+Given a ``frontend`` directory, the app serves it at ``/``, on the API's own
+origin. The API's routes are registered first, so ``/api/...``, ``/docs`` and
+``/openapi.json`` win over a file of the same name.
 """
 
 from __future__ import annotations
@@ -61,7 +58,7 @@ def create_app(
 
     Whoever opens a state that keeps a file closes it: ``updater serve`` does.
     ``frontend`` is a directory served at ``/``, ``index.html`` first; without
-    one the app is the API alone, as it always was.
+    one the app is the API alone.
     """
     app = FastAPI(
         title="ASIL research update API",

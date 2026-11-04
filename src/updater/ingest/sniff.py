@@ -1,14 +1,12 @@
 """Media-type sniffing (BUILD_SPEC.md section 3).
 
-Dispatch is on content, never on the file extension, because ASIL staff will
-upload a ``.txt`` that is actually a PDF and the pipeline must not care.
+Dispatch is on content, never the file extension: ASIL staff will upload a
+``.txt`` that is actually a PDF.
 
-``filetype`` covers the formats that have magic bytes. Plain-text formats do
-not have any, so they fall through to a marker scan over the first few
-kilobytes. The one place an extension is consulted is the final tiebreak between
-Markdown and plain text, which are byte-identical formats that no amount of
-content sniffing can separate — and by then every binary format has already been
-ruled out on content, so the spec's rule still holds where it matters.
+``filetype`` covers formats with magic bytes; text formats fall through to a
+marker scan over the first :data:`SNIFF_BYTES`. The extension is consulted in
+exactly one place, the final tiebreak between Markdown and plain text, which no
+content sniffing can separate, after every binary format has been ruled out.
 """
 
 from __future__ import annotations
@@ -57,11 +55,9 @@ _MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
 CSV_DELIMITERS = (",", ";", "\t", "|")
 """Delimiters worth testing, commonest first.
 
-Semicolon is not exotic: it is what Excel writes on a machine with a European
-locale, where the comma is the decimal separator. Tab-separated files sniff as
-``text/csv`` too — there is no TSV media type in the spec and the adapter reads
-whichever delimiter this module reports, so a separate type would buy nothing
-but a second dispatch key pointing at the same code.
+Semicolon is what Excel writes under a European locale. Tab-separated files
+sniff as ``text/csv`` too: the adapter reads whichever delimiter this module
+reports, so a separate TSV type would only add a second dispatch key.
 """
 
 CSV_SAMPLE_LINES = 20
@@ -77,10 +73,9 @@ CSV_MIN_FIELDS = 2
 def sniff_media_type(path: Path) -> str:
     """Return the IANA media type of ``path``, judged by its content.
 
-    Always a plain ``str``, never a :class:`~updater.models.MediaType` member.
-    The constants are a convenience for writing this module; letting one escape
-    would put ``<MediaType.TXT: 'text/plain'>`` into error messages meant for
-    ASIL staff.
+    Always a plain ``str``, never a :class:`~updater.models.MediaType` member,
+    which would put ``<MediaType.TXT: 'text/plain'>`` into error messages meant
+    for ASIL staff.
     """
     guess = filetype.guess(str(path))
     if guess is None:
@@ -127,9 +122,8 @@ def _sniff_text(path: Path) -> str:
 def detect_delimiter(path: Path) -> str:
     """The delimiter :func:`sniff_media_type` found, or a comma.
 
-    The CSV adapter needs the delimiter, and re-deriving it there would let the
-    two disagree — a file could sniff as CSV on semicolons and then be read on
-    commas, producing one wide column per row. Sniffing decides once.
+    The CSV adapter takes the delimiter from here rather than re-deriving it, so
+    a file that sniffed as CSV on semicolons is never then read on commas.
     """
     head = path.read_bytes()[:SNIFF_BYTES]
     decoded = head.decode("utf-8", errors="ignore")
@@ -139,21 +133,16 @@ def detect_delimiter(path: Path) -> str:
 def _delimiter_of(text: str, *, truncated: bool) -> str | None:
     """The delimiter giving a consistent field count over the sample, if any.
 
-    Consistency is the whole test, and it is what separates a table from prose:
-    an English paragraph has commas, but not the *same number* of them on every
-    line. Field counting goes through :mod:`csv` rather than ``str.count`` so a
-    quoted value containing the delimiter does not derail the count.
+    Consistency is what separates a table from prose: a paragraph has commas,
+    but not the *same number* on every line. Counting goes through :mod:`csv`
+    so a quoted value containing the delimiter does not derail it.
 
-    The last line is dropped only when the read actually hit
-    :data:`SNIFF_BYTES`, because that is the only time it can be half a row
-    whose short field count would look like an inconsistency. Dropping it
-    unconditionally would throw away one of the two lines a small file has, and
-    a three-line CSV would sniff as plain text.
+    The last line is dropped only when the read hit :data:`SNIFF_BYTES`, the
+    only case where it can be half a row. Dropping it unconditionally would make
+    a three-line CSV sniff as plain text.
 
-    **Known limit:** prose laid out with a rigidly repeating comma pattern —
-    an address list, say — sniffs as CSV. That is the right call more often
-    than not, and the failure is visible rather than silent: the passages come
-    out as bare unpaired rows, not as something that looks like a clean table.
+    Known limit: prose with a rigidly repeating comma pattern (an address list)
+    sniffs as CSV. The failure is visible: bare unpaired rows.
     """
     lines = text.splitlines()
     if truncated and len(lines) > 1:

@@ -1,10 +1,9 @@
 """Extract the dashboard prototype's hardcoded data into the mock API's fixtures.
 
 The approved prototype, ``docs/frontend/asil-dashboard-DRAFT-FINAL.html``, is
-the source of truth for every shape the API returns (BACKEND_PLAN.md). It makes
-no network calls: its data is four arrays in its ``<script>`` and the rest is
-written into its markup. This reads all of it out, so the phase 0 mock serves
-exactly what the prototype shows and nobody retypes it by hand::
+the source of truth for every shape the API returns (BACKEND_PLAN.md). Its data
+is four arrays in its ``<script>`` and the rest is written into its markup. This
+reads all of it out, so the API serves exactly what the prototype shows::
 
     uv run python scripts/extract_prototype_fixtures.py           # rewrite
     uv run python scripts/extract_prototype_fixtures.py --check   # drift check
@@ -13,28 +12,24 @@ exactly what the prototype shows and nobody retypes it by hand::
 The test suite runs it, so a revised prototype fails the build until the
 fixtures are regenerated and the diff has been read.
 
-Everything is copied verbatim except for four transforms, each deliberate:
+Everything is copied verbatim except for four transforms:
 
-- **Placeholder text becomes null.** The prototype writes "Not retrieved",
-  "unknown" and "Not in last year's report" where a value does not exist.
-  Design rule 2: a value the sources do not state is null, never a placeholder.
-  A contract carrying those strings would oblige the compare stage to emit them,
-  and a missing value would then read exactly like a real one. Only the strings
-  in ``PLACEHOLDERS`` are mapped, and only in the field named; the frontend
-  renders the label.
+- **Placeholder text becomes null** (design rule 2). A contract carrying "Not
+  retrieved" would oblige the compare stage to emit it, and a missing value
+  would then read exactly like a real one. Only the strings in ``PLACEHOLDERS``
+  are mapped, and only in the field named; the frontend renders the label.
 - **Display labels become the contract's enum values** (source status, scan
-  outcome state, settings selections). An unrecognised label raises rather than
-  being guessed at. Every option of a settings ``<select>`` is mapped, not only
-  the selected one, so a new option in a revised prototype fails loudly here.
+  outcome state, settings selections). An unrecognised label raises. Every
+  option of a settings ``<select>`` is mapped, not only the selected one, so a
+  new option in a revised prototype fails loudly here.
 - **Relative dates become timestamps.** "3 days ago" is counted back from the
-  date the prototype's dashboard shows, at 9:00 am AEST — the scheduled scan
+  date the prototype's dashboard shows, at 9:00 am AEST, the scheduled scan
   time in its settings. "Not yet" is null.
 - **Registry URLs gain a scheme.** The table shows ``abs.gov.au/employment``.
 
-The JS parser below is deliberately narrow. It reads what the prototype's
-arrays contain and refuses anything else, because a parser that skips what it
-does not understand would let a revised prototype be half-extracted without
-anyone noticing.
+The JS parser is deliberately narrow and refuses anything it does not
+recognise, so a revised prototype cannot be half-extracted without anyone
+noticing.
 """
 
 from __future__ import annotations
@@ -65,9 +60,8 @@ PLACEHOLDERS: dict[str, frozenset[str]] = {
     "prev": frozenset({"Not in the 2025 report."}),
 }
 
-# Field sets, checked exactly. The null transform above is keyed by field name,
-# so a renamed field would silently escape it; failing here is what forces the
-# API schema and this script to be updated together.
+# Field sets, checked exactly: the null transform is keyed by field name, so a
+# renamed field would silently escape it.
 CLAIM_KEYS = frozenset(
     {"id", "type", "status", "title", "src", "page", "before", "after", "conf"}
     | {"note", "section", "lastYear"}
@@ -117,9 +111,7 @@ class JsLiteralError(FixtureError):
     """The script text is not a literal this parser understands."""
 
 
-# --------------------------------------------------------------------------
 # JavaScript literals
-# --------------------------------------------------------------------------
 
 _IDENTIFIER = re.compile(r"[A-Za-z_$][\w$]*")
 _NUMBER = re.compile(r"-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
@@ -276,9 +268,7 @@ def js_const(script: str, name: str) -> Any:
     return value
 
 
-# --------------------------------------------------------------------------
 # Markup
-# --------------------------------------------------------------------------
 
 
 def _has_class(name: str) -> str:
@@ -503,9 +493,7 @@ def extract_meta(doc: Any, script: str, today: date) -> dict[str, Any]:
     }
 
 
-# --------------------------------------------------------------------------
 # Assembly
-# --------------------------------------------------------------------------
 
 
 def build_fixtures(html_text: str) -> dict[str, Any]:

@@ -1,7 +1,6 @@
-"""Evaluation harness (BUILD_SPEC.md section 6).
+"""Evaluation harness (BUILD_SPEC.md section 6; built in BACKEND_PLAN.md phase 11).
 
-Built in Phase 3, not at the end. Without it there is no basis for claiming the
-system works.
+Without it there is no basis for claiming the system works.
 
 Citation fidelity
     Sample 30 draft claims, resolve each anchor, manually verify the passage
@@ -14,8 +13,8 @@ Comparison accuracy
 
 All three run under pytest as regression tests on every change.
 
-Note: this package is ``updater.eval``, which shadows the ``eval`` builtin only
-if imported as a bare name. Import it as ``updater.eval`` or alias it.
+Import it as ``updater.eval`` (or aliased), never as a bare ``eval``, which
+would shadow the builtin.
 """
 
 from __future__ import annotations

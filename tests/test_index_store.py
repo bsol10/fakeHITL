@@ -1,23 +1,14 @@
-"""Embedding, storage and retrieval.
-
-Three things are under test here, and only the first is about search quality:
+"""Embedding, storage and retrieval, with a hash-based stub embedder.
 
 *No text is silently unembedded.* The model's window is 256 word pieces and a
-chunk may be 600, so a chunk has to be embedded as several windows. If that were
-wrong the index would look complete, contain every chunk, and be searchable only
-on the first 40% of the long ones. Nothing would report it.
+chunk may be 600, so a long chunk is embedded as several windows. Otherwise the
+index would look complete and be searchable only on the first 40% of it.
 
-*A chunk comes back out exactly as it went in.* Text, token count, locator
-variant, offsets, timestamp. An anchor that survives storage in a slightly
-different form is not provenance any more.
+*A chunk comes back out exactly as it went in*: text, token count, locator
+variant, offsets, timestamp.
 
-*Re-indexing replaces.* Running twice must not leave two copies of a source's
-chunks in the index, one of them describing a document that no longer says that.
-The full-text index is held to the same standard: a word that has left the
-document must stop finding it, and must never find the chunk that replaced it.
-
-The embedder here is a hash-based stub. Loading the real model takes twelve
-seconds and none of the properties above are properties of the model.
+*Re-indexing replaces.* No stale second copy of a source's chunks, and a word
+that has left the document stops finding it in the full-text index too.
 """
 
 from __future__ import annotations
@@ -110,9 +101,7 @@ def assert_text_index_matches_chunks(path: Path) -> None:
         connection.close()
 
 
-# --------------------------------------------------------------------------- #
-# Windowing — the silent-truncation guard
-# --------------------------------------------------------------------------- #
+# Windowing: the silent-truncation guard
 
 
 def test_a_chunk_within_the_window_is_embedded_whole() -> None:
@@ -125,8 +114,8 @@ def test_a_chunk_within_the_window_is_embedded_whole() -> None:
 
 
 def test_a_chunk_longer_than_the_window_is_embedded_in_several() -> None:
-    """The property that keeps a 600-token chunk fully searchable. Without it
-    sentence-transformers truncates at 256 word pieces and says nothing."""
+    """Without windows, sentence-transformers silently truncates at 256 word
+    pieces."""
     try:
         counter = default_token_counter()
     except TokenizerUnavailable as error:  # pragma: no cover - depends on install
@@ -168,9 +157,7 @@ def test_identical_text_embeds_identically() -> None:
     assert first == second
 
 
-# --------------------------------------------------------------------------- #
 # Storage round trip
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(
@@ -199,9 +186,8 @@ def test_a_chunk_comes_back_exactly_as_it_went_in(
 
 
 def test_offsets_survive_storage(tmp_path: Path) -> None:
-    """A chunk from the middle of a page carries non-zero offsets, and those are
-    what a reviewer uses to find the text. Storing them as anything other than
-    what they were is a wrong citation."""
+    """A chunk from mid-page has non-zero offsets, which are what a reviewer uses
+    to find the text."""
     parent = make_passage(sentinel_text())
     chunk = chunk_passage(
         parent, counter=WordCounter(), config=ChunkConfig(40, 25, 0.15)
@@ -218,8 +204,8 @@ def test_offsets_survive_storage(tmp_path: Path) -> None:
 
 
 def test_re_indexing_replaces_rather_than_appends(tmp_path: Path) -> None:
-    """Two copies of a source's chunks, one of them stale, is the worst failure
-    this store could have: both would be retrievable and only one is true."""
+    """Two copies of a source's chunks would both be retrievable, and only one
+    would be true."""
     chunks = chunk_passage(
         make_passage(sentinel_text()),
         counter=WordCounter(),
@@ -307,9 +293,7 @@ def test_locator_kinds_summarises_the_index(tmp_path: Path) -> None:
         assert store.locator_kinds() == {"cell": 1, "page": 1}
 
 
-# --------------------------------------------------------------------------- #
 # Index settings
-# --------------------------------------------------------------------------- #
 
 
 def test_an_index_built_with_another_model_is_refused(tmp_path: Path) -> None:
@@ -350,9 +334,8 @@ def make_version_1_index(tmp_path: Path) -> Path:
 def test_an_index_with_an_older_schema_is_refused_and_left_untouched(
     tmp_path: Path,
 ) -> None:
-    """The settings are checked before any table is created. Checking after
-    would add version 2's tables to a file it then refuses, half-upgrading an
-    index that nobody asked to change."""
+    """The settings are checked before any table is created, so a refused file
+    is not left half-upgraded."""
     path = make_version_1_index(tmp_path)
     before = schema_of(path)
 
@@ -364,8 +347,8 @@ def test_an_index_with_an_older_schema_is_refused_and_left_untouched(
 
 def test_rebuild_opens_an_index_the_settings_check_refuses(tmp_path: Path) -> None:
     """The refusal tells the operator to run ``updater ingest --rebuild``, so
-    the rebuild has to get past the same refusal — and the only other way past
-    it is deleting a file that also holds the audit log."""
+    the rebuild has to get past it. The only other way past is deleting a file
+    that also holds the audit log."""
     make_version_1_index(tmp_path)
 
     with open_store(tmp_path, rebuild=True) as store:
@@ -397,9 +380,7 @@ def test_a_query_vector_of_the_wrong_width_is_refused(tmp_path: Path) -> None:
             store.search([0.1, 0.2, 0.3])
 
 
-# --------------------------------------------------------------------------- #
 # Retrieval
-# --------------------------------------------------------------------------- #
 
 
 def test_a_chunk_is_retrieved_by_its_own_text(tmp_path: Path) -> None:
@@ -426,8 +407,7 @@ def test_a_chunk_is_retrieved_by_its_own_text(tmp_path: Path) -> None:
 
 
 def test_results_carry_the_anchor_not_just_the_text(tmp_path: Path) -> None:
-    """Rule 1: there is no stage where text becomes a bare string. Retrieval is
-    the stage where it would be most tempting."""
+    """Rule 1: text never becomes a bare string, retrieval included."""
     chunk = make_passage(
         "Region: North East",
         locator=CellLocator(sheet="Apprenticeship starts", cell_range="A6:D6"),
@@ -508,9 +488,7 @@ def test_extracted_at_is_preserved_to_the_second(tmp_path: Path) -> None:
         assert store.get_chunk(chunk.id).anchor.extracted_at == stamped
 
 
-# --------------------------------------------------------------------------- #
 # The full-text index
-# --------------------------------------------------------------------------- #
 
 
 def test_text_search_finds_a_chunk_by_a_word_in_it(tmp_path: Path) -> None:
@@ -588,8 +566,7 @@ def test_query_syntax_in_a_query_is_searched_for_not_parsed(
     tmp_path: Path, query: str
 ) -> None:
     """FTS5 reserves AND, OR, NOT, NEAR, *, ^ and :, and a NUL ends one of its
-    strings early. Someone pasting a sentence into the search box is not
-    writing FTS5, and a syntax error is the wrong answer to give them."""
+    strings early. A query is user text, so none of these may raise."""
     with open_store(tmp_path) as store:
         indexed(store, rows("Risk Group: Higher risk; Premium: 4%"))
 
@@ -611,11 +588,9 @@ def test_a_query_with_nothing_searchable_finds_nothing() -> None:
 
 
 def test_re_indexing_replaces_the_text_index_too(tmp_path: Path) -> None:
-    """The failure this guards against is worse than a stale result. Rowids are
-    reused once the rows holding them are deleted, so a full-text entry left
-    behind for the old text would point at the *new* chunk, and a search for a
-    word the document no longer contains would return a passage that does not
-    contain it, with a sound anchor."""
+    """Rowids are reused once the rows holding them are deleted, so a full-text
+    entry left behind for the old text would point at the *new* chunk: a search
+    would return a passage that does not contain the word, with a sound anchor."""
     with open_store(tmp_path) as store:
         indexed(store, [make_passage("Apprenticeship starts fell.", passage_id="a")])
         indexed(store, [make_passage("Traineeship completions rose.", passage_id="a")])
@@ -647,10 +622,8 @@ def test_chunk_rowids_are_declared_so_vacuum_cannot_renumber_them(
 ) -> None:
     """The full-text index stores rowids, and the join turns them back into
     chunks. SQLite documents that ``VACUUM`` may renumber the rowids of a table
-    without an ``INTEGER PRIMARY KEY``, after which every text hit would resolve
-    to the wrong chunk. SQLite 3.53 happens not to, so no behavioural test can
-    show the failure here; declaring the column is the guarantee, and this pins
-    it."""
+    without an ``INTEGER PRIMARY KEY``. SQLite 3.53 happens not to, so no
+    behavioural test can show the failure; the declaration is pinned instead."""
     with open_store(tmp_path):
         pass
     connection = sqlite3.connect(tmp_path / "index.sqlite3")

@@ -1,14 +1,10 @@
 """The API's wire format. Pydantic lives here, at the boundary, and nowhere else.
 
-Field names are the prototype's, verbatim (BACKEND_PLAN.md, "API contract"), so
-wiring the frontend is a find-and-replace of hardcoded arrays with ``fetch``
-calls. That is why ``lastYear`` sits beside ``update_frequency``: the prototype
-mixes cases and the contract follows the prototype, not taste. Field order
-follows the prototype too, so a response reads like the array it replaces.
-
-Two kinds of field are added, never renamed: a claim carries its ``decision``
-and a draft item its ``review``, so a reloaded page can restore what the
-prototype kept in memory.
+Field names and order are the prototype's, verbatim (BACKEND_PLAN.md, "API
+contract"), so each screen renders a response as it rendered the array it
+replaces. That is why ``lastYear`` sits beside ``update_frequency``. Fields are
+added, never renamed: a claim carries its ``decision`` and a draft item its
+``review``, so a reloaded page can restore what the prototype kept in memory.
 
 Nullable fields are nullable on purpose (design rule 2). A claim's ``after`` is
 null when nothing was retrieved, never "Not retrieved"; the frontend renders the

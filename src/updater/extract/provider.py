@@ -1,14 +1,11 @@
 """Choosing the model provider from the environment.
 
-``UPDATER_MODEL_PROVIDER`` is ``anthropic`` or ``gemini``, case-insensitive.
-Unset or blank means :data:`DEFAULT_PROVIDER`.
+``UPDATER_MODEL_PROVIDER`` is ``anthropic`` or ``gemini``, case-insensitive;
+unset or blank means :data:`DEFAULT_PROVIDER`. The default stays ``anthropic``
+until Gemini's live tests (``uv run pytest -m live``) pass against a real key.
 
-The default stays ``anthropic`` until Gemini's live tests have passed against
-a real key (decisions log, 2026-10-08). Switching it is one constant, and the
-live tests are ``uv run pytest -m live``.
-
-Each provider's module is imported only when it is chosen, so selecting Gemini
-never loads ``anthropic`` and selecting Claude never needs the ``gemini`` extra.
+Each provider's module is imported only when it is chosen, so selecting Claude
+never needs the ``gemini`` extra.
 """
 
 from __future__ import annotations

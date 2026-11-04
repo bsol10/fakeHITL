@@ -1,9 +1,5 @@
-"""Tests for the chunk-boundary invariant (BUILD_SPEC.md section 4).
-
-Chunking does not exist yet. That is exactly why these are written now: the rule
-"never span two locators" is easy to hold to when the check is already named and
-tested, and easy to relax when it is a sentence in a spec.
-"""
+"""The chunk-boundary invariant (BUILD_SPEC.md section 4): a chunk derives
+from one locator unit and never spans two."""
 
 from __future__ import annotations
 

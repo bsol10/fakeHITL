@@ -1,22 +1,17 @@
 """Rendering a locator so a human can go and check it.
 
 A citation has two halves: *which document* and *where in it*. This module owns
-the second half — turning each locator variant into the form a reviewer would
-use to find the text by hand ("p. 14", "Sheet1!B4:F4", "paragraph 37").
+the second half, in the form a reviewer would use to find the text by hand
+("p. 14", "Sheet1!B4:F4", "paragraph 37"). The draft stage (not built yet) owns
+assembling "(Source title, p. 14)" into sentences, and should build on
+:func:`render_anchor` so the CLI, the inspector and the draft cannot disagree
+about what a citation looks like.
 
-BUILD_SPEC.md's draft stage owns the first half and the assembly: "(Source
-title, p. 14)", plus the linter that fails a material sentence carrying no
-citation at all. It builds on :func:`render_anchor` rather than replacing it, so
-there is one place where a page becomes "p. 14" and the CLI, the inspector and
-the draft cannot drift apart about what a citation looks like.
-
-The rendering rule throughout: **address the reader's copy of the document, not
-ours.** Page and slide numbers are the ones printed on the page; cell ranges are
-A1 notation as Excel shows them; a DOCX paragraph index counts blocks including
-the empty ones, because that is what a reviewer scrolling the file will land on.
-For HTML the heading trail comes first and the CSS path second, because the
-trail still reads correctly after a publisher restyles the page and the path
-does not — and a year usually passes between two runs.
+The rule throughout: **address the reader's copy of the document, not ours.**
+Page and slide numbers as printed; cell ranges in A1 notation as Excel shows
+them; DOCX paragraph indexes counting empty paragraphs too. For HTML the heading
+trail comes first, because it survives a publisher restyling the page and the
+CSS path does not.
 """
 
 from __future__ import annotations
@@ -60,9 +55,8 @@ def render_locator(locator: Locator) -> str:
 def render_anchor(anchor: SourceAnchor, *, title: str | None = None) -> str:
     """A citation: the source, then the place inside it.
 
-    ``title`` is the human-readable source title from the registry. Without one
-    the source id is used, which is legible enough for a CLI and never for a
-    draft — the draft stage always has the registry entry to hand.
+    ``title`` is the source title from the registry. Without one the source id
+    is used, which is legible enough for a CLI but not for a draft.
     """
     where = render_locator(anchor.locator)
     return f"{title or anchor.source_id}, {where}"

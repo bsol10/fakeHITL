@@ -1,14 +1,9 @@
 """The approved-source registry, and the boundary it draws.
 
-Design rule 3 is the one rule with no type to enforce it: a ``Source`` is a
-plain dataclass and anything can build one. What makes the rule real is that the
-pipeline only ever *gets* a ``Source`` from here, and that this module refuses to
-produce one for a document nobody approved. These tests are that refusal.
-
-The validation tests look pedantic for a hand-edited YAML file. They are not:
-every one of them is a way the file can be wrong while still parsing, and a
-registry that parses into the wrong sources fails silently — the run indexes
-what it was given and says nothing about what it was not.
+Design rule 3 has no type to enforce it: anything can build a ``Source``. What
+makes the rule real is that the pipeline only ever *gets* a ``Source`` from
+here, and that this module refuses to produce one for a document nobody
+approved.
 """
 
 from __future__ import annotations
@@ -85,17 +80,12 @@ def test_the_environment_can_move_the_registry(
     assert registry_path(Path("explicit.yaml")) == Path("explicit.yaml")
 
 
-# --------------------------------------------------------------------------- #
-# Validation — every one of these parses as YAML and means the wrong thing
-# --------------------------------------------------------------------------- #
+# Validation: each of these parses as YAML and means the wrong thing, silently
 
 
 def test_a_mistyped_field_name_is_rejected_rather_than_ignored(tmp_path: Path) -> None:
-    """The silent-loss failure this project keeps meeting.
-
-    ``topics:`` instead of ``topic:`` leaves the real field unset. A lenient
-    loader would produce a source with an empty topic and no complaint.
-    """
+    """``topics:`` instead of ``topic:`` leaves the real field unset, and a
+    lenient loader would produce a source with an empty topic."""
     entry = registry_entry()
     entry["topics"] = entry.pop("topic")
     path = write_registry(tmp_path / "registry.yaml", [entry])
@@ -159,10 +149,8 @@ def test_both_meanings_of_biannual_can_be_written(
 
 
 def test_year_yes_is_not_a_year(tmp_path: Path) -> None:
-    """YAML reads a bare ``yes`` as True, and ``bool`` is an ``int`` in Python.
-
-    Without the explicit check, ``year: yes`` would load as the year 1.
-    """
+    """YAML reads a bare ``yes`` as True, and ``bool`` is an ``int`` in Python,
+    so without an explicit check ``year: yes`` would load as the year 1."""
     path = write_registry(tmp_path / "registry.yaml", [registry_entry(year=True)])
 
     with pytest.raises(MalformedRegistry, match="year"):
@@ -204,9 +192,7 @@ def test_a_registry_that_is_a_bare_list_is_rejected(tmp_path: Path) -> None:
         load_registry(tmp_path / "registry.yaml")
 
 
-# --------------------------------------------------------------------------- #
 # The rule 3 boundary
-# --------------------------------------------------------------------------- #
 
 
 def test_an_unregistered_file_cannot_be_resolved_to_a_source(tmp_path: Path) -> None:
@@ -250,9 +236,8 @@ def test_relative_paths_resolve_against_the_registry_file(tmp_path: Path) -> Non
 
 
 def test_path_matching_ignores_case_as_windows_does(tmp_path: Path) -> None:
-    """The development machine is Windows, where ``Docs\\A.PDF`` and ``docs/a.pdf``
-    are the same file. A case-sensitive comparison would refuse a source that is
-    plainly in the registry."""
+    """On Windows ``Docs\\A.PDF`` and ``docs/a.pdf`` are the same file, so a
+    case-sensitive comparison would refuse a source that is in the registry."""
     documents = tmp_path / "docs"
     documents.mkdir()
     (documents / "Destinations-2025.pdf").write_bytes(b"%PDF-1.4")
@@ -296,17 +281,12 @@ def test_membership_reads_naturally(tmp_path: Path) -> None:
     assert "something-else" not in registry
 
 
-# --------------------------------------------------------------------------- #
 # The project's own registry
-# --------------------------------------------------------------------------- #
 
 
 def test_the_projects_registry_is_valid() -> None:
-    """The committed registry.yaml has to load, or nothing in the repo runs.
-
-    It is hand-edited YAML listing real client documents; a typo in it is a
-    plausible mistake and this is the cheapest place to catch one.
-    """
+    """The committed registry.yaml is hand-edited, and nothing runs if it does
+    not load."""
     path = Path(__file__).resolve().parent.parent / "registry.yaml"
     if not path.is_file():
         pytest.skip("no registry.yaml in the repository root")
